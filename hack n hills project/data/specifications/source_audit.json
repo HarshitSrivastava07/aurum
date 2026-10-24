@@ -1,0 +1,110 @@
+[
+  {
+    "symbol": "GOLDM",
+    "effective_from": "2025-11-01",
+    "effective_to": "2026-04-30",
+    "source_url": "https://www.mcxindia.com/docs/default-source/products/contract-specification/gold-mini/gold-mini-november-2025-contract-onwardsfc22554857fb64e3bdfdff00007acb35.pdf",
+    "source_hash": null,
+    "downloaded": false,
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "symbol": "GOLDM",
+    "effective_from": "2026-05-01",
+    "effective_to": "2026-07-31",
+    "source_url": "https://www.mcxindia.com/docs/default-source/about-us/gold-mini-may-2026-contract-onwards.pdf",
+    "source_hash": null,
+    "downloaded": false,
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "symbol": "GOLDM",
+    "effective_from": "2026-08-01",
+    "effective_to": null,
+    "source_url": "https://www.mcxindia.com/docs/default-source/about-us/gold-mini-august-2026-contract-onwards8a79913a-e8de-4136-9f0b-25d31dc163c4.pdf",
+    "source_hash": null,
+    "downloaded": false,
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "symbol": "GOLDTEN",
+    "effective_from": "2025-04-01",
+    "effective_to": "2025-10-31",
+    "source_url": "https://www.mcxindia.com/docs/default-source/products/contract-specification/gold-ten/gold-ten-april-2025-contract-onwards7fb63e4857fb64e3bdfdff00007acb3580008247-f6c1-4a56-be21-ac18ff0bdbe4.pdf",
+    "source_hash": null,
+    "downloaded": false,
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "symbol": "GOLDTEN",
+    "effective_from": "2025-11-01",
+    "effective_to": "2026-06-30",
+    "source_url": "https://www.mcxindia.com/docs/default-source/products/contract-specification/gold-ten/gold-ten-november-2025-contract-onwards9a08564857fb64e3bdfdff00007acb35.pdf",
+    "source_hash": null,
+    "downloaded": false,
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "symbol": "GOLDTEN",
+    "effective_from": "2026-07-01",
+    "effective_to": null,
+    "source_url": "https://www.mcxindia.com/docs/default-source/about-us/gold-ten-july-2026-contract-onwards.pdf",
+    "source_hash": null,
+    "downloaded": false,
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "symbol": "GOLDGUINEA",
+    "effective_from": "2025-01-01",
+    "effective_to": "2025-11-30",
+    "source_url": "https://www.mcxindia.com/docs/default-source/products/contract-specification/gold-guinea/gold-guinea-january-2025-contract-onwards8992f3f6-d244-425a-9a53-66d94500bb34.pdf",
+    "source_hash": null,
+    "downloaded": false,
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "symbol": "GOLDGUINEA",
+    "effective_from": "2025-12-01",
+    "effective_to": "2026-06-30",
+    "source_url": "https://www.mcxindia.com/docs/default-source/products/contract-specification/gold-guinea/gold-guinea-december-2025-contract-onwardsdc22554857fb64e3bdfdff00007acb35.pdf",
+    "source_hash": null,
+    "downloaded": false,
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "symbol": "GOLDGUINEA",
+    "effective_from": "2026-07-01",
+    "effective_to": null,
+    "source_url": "https://www.mcxindia.com/docs/default-source/about-us/gold-guinea-july-2026-contract-onwards.pdf",
+    "source_hash": null,
+    "downloaded": false,
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "symbol": "GOLDPETAL",
+    "effective_from": "2025-04-01",
+    "effective_to": "2025-11-30",
+    "source_url": "https://www.mcxindia.com/docs/default-source/products/contract-specification/gold-petal/gold-petal-april-2025-contracts-onwards4b958087-3b38-44b0-abc2-30acd903c1ad.pdf",
+    "source_hash": null,
+    "downloaded": false,
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "symbol": "GOLDPETAL",
+    "effective_from": "2025-12-01",
+    "effective_to": "2026-06-30",
+    "source_url": "https://www.mcxindia.com/docs/default-source/products/contract-specification/gold-petal/gold-petal-december-2025-contracts-onwards7a08564857fb64e3bdfdff00007acb35.pdf",
+    "source_hash": null,
+    "downloaded": false,
+    "error": "HTTP Error 403: Forbidden"
+  },
+  {
+    "symbol": "GOLDPETAL",
+    "effective_from": "2026-07-01",
+    "effective_to": null,
+    "source_url": "https://www.mcxindia.com/docs/default-source/about-us/gold-petal-july-2026-contract-onwards.pdf",
+    "source_hash": null,
+    "downloaded": false,
+    "error": "HTTP Error 403: Forbidden"
+  }
+]

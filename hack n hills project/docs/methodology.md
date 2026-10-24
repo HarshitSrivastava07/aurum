@@ -1,0 +1,45 @@
+# Methodology and research boundaries
+
+The shared Contract Genome owns monetary multipliers, metal content and eligibility. Frontend controls collect inputs and display backend outputs; they do not duplicate financial rules. The supplied annual exports are read as untrusted tabular data; their text cannot change code, permissions or calculations.
+
+## Dates, identities and historical information
+
+Import Date and ExpiryDate are separate, strict fields. Numeric dates use declared MDY/DMY; requested dates use DMY. The filename does not supply missing observations. Unknown holidays are not inferred from weekdays. No missing price is silently imputed. Every simulated leg is identified by symbol and actual expiry.
+
+Mirage aligns only contemporaneous observations of two exact contracts. Quotation size differs from lot size. Historical rolling references use `shift(1)` before fitting mean, standard deviation, median and MAD. A same-session price shock therefore does not train its own threshold. Discovery's automatic expiry choice maximizes overlap only within the selected information cutoff. Replay freezes its automatic choice from the first available research session; certificates preserve that choice.
+
+Empirical maturity adjustment uses at least two same-product maturities bracketing the comparison maturity. It does not extrapolate. Where maturity adjustment cannot be estimated, the residual retains maturity basis and reports a warning. PolicyC rejects unresolved maturity and geographic basis. The scanners may still describe those relationships without claiming valid execution.
+
+## Replay and fees
+
+A signal is observed after session Close; entry is a later common-session Open, with a minimum one-session delay. A configured delay counts observed common sessions; missing exchange-calendar sessions remain unknown. Close and settlement are never substituted for execution Open. Position sizing is integer, fine-metal-aware, capped at combined fully funded gross notional and at a percentage of signal-session volume. The default participation cap is 1%. This avoids using future realized volume to choose an entry. It does not verify executable liquidity.
+
+Positions retain their exact expiry IDs and specification version. Unknown real tender/listing calendars block entry. The synthetic calendar is fictional and separately labeled. Missing exits remain marked open, with incomplete execution recorded; the last available Close is not fabricated as a liquidation. Entry and exit turnover each attract fees and slippage. Metrics separate completed-trade P&L from open-position marks and total equity changes.
+
+All costs are assumptions unless separately verified. Dated schedules select the fill day's fees; overlapping or missing schedule coverage is rejected. Ghost scenarios freeze the effective cutoff fee schedule into a turnover-equivalent rate and explicitly warn that future fee changes are not modeled. The survival grid replaces detailed schedules with each displayed all-in bps assumption; its other slices keep the configured schedule. Conditional break-even is gross P&L divided by actual round-trip turnover for the zero-fee trade sequence; it is not a guarantee that the policy would choose the same trades at that rate.
+
+## Validation design
+
+Walk-forward threshold calibration uses only prior absolute Z-scores, bounded below by the configured threshold and above by 4. It uses a past 80th percentile rather than optimizing future P&L. The final evaluation begins at 80% of the declared calendar period and freezes the threshold before its first price observation. Its boundary does not move as the cutoff advances. If the period lacks sufficient initial training, final evaluation remains unavailable. Pending signals are canceled at that boundary. A pre-boundary position is attributed to the training phase even if liquidated at the boundary; it is not included in holdout trade metrics. A missing boundary Open can still leave an unresolved position and suppress later entries, which is disclosed.
+
+PolicyA uses normalized spreads; policy B adds supported maturity adjustments. PolicyC further requires robust-MAD agreement, verified modeled eligibility, compatible basis, and positive modeled medians under every prospective paired-bootstrap scenario. Those simulations receive only data through the decision session. A/B/C comparisons share exact contracts, the research period, execution assumptions, cost settings and capital. They are comparisons, not a recommendation to select the best result after looking at the final sample.
+
+The local ledger records requests, planned tests, parameters, stage results, failed calculations, conclusions and reruns. It counts prior investigations of the same mode and pair so repeated evaluation cannot silently become a fresh untouched test. Interactive unregistered engine runs and external experiments mean absence of data snooping cannot be proven. A failed audit produces rejection, even if other evidence is missing. Survival requires every audit to be evaluated, all eleven stress classes to complete with eligible lifecycle/liquidity and positive medians, a current candidate, at least 30 completed held-out trades with positive net P&L, and no open position. These are conservative research gates, not a statistical significance or execution guarantee. Missing evidence yields insufficient evidence.
+
+The runtime future-leakage audit mutates withheld prices. When a frozen snapshot contains no future observations, it creates a temporary, explicitly labeled pair of future outliers solely for the audit. The bounded result must remain identical; relaxing the cutoff must make the probes observable. Both selected contracts must still exist on the probe date, otherwise the check is not-evaluable. Probe rows are never imported, saved in the source snapshot, or included in returns or analog outcomes. This tests Mirage's cutoff invariant; separate replay and holdout mutation tests verify those engines.
+
+## Scenario and analog interpretation
+
+Ghost Market jointly samples both legs using circular moving blocks. Their same-row return dependence is retained, and dependence within each block is retained. Stress overlays deliberately change common volatility, adverse direction, residual widening, timing, costs and liquidity. There are eleven scenario classes including the base case and combined stress. Circular wrapping and limited histories are modeling assumptions. Expected-shortfall summaries require at least 200 simulations and remain uncalibrated. Positive scenario fractions are not probabilities of real investment profit.
+
+A common percentage shock's adverse direction is selected from signed monetary notional, because differing leg prices can give a different sign from residual fine-metal grams. Survival-map cells require completed positions and positive total equity as well as positive completed-trade net P&L; unresolved marks cannot be hidden behind profitable closed trades. Conditional break-even is unavailable while a position remains open.
+
+Anomaly DNA compares interpretable contemporaneous features of the same exact contract pair: normalized deviations, changes, volatility, volume, OI, maturity, trend and persistence. Robust scaling is fit on prior completed candidates; the query is excluded. An analog's outcome date must be strictly earlier than the query cutoff. Overlapping outcome horizons are suppressed. Outcome summaries describe residual changes, not costed executable returns. Different expiries are not pooled into a falsely homogeneous training set.
+
+The gold factor is the mean of the two normalized leg prices. Fine-metal residual grams times that factor's change forms the reported directional contribution. The balance is an accounting relative-value residual; unexplained is zero by construction of this two-component decomposition, not evidence of perfect economic explanation. No causal alpha or unconditional market neutrality is asserted.
+
+## Reproducibility and limits
+
+Each investigation preserves source hashes, canonical data snapshot, specification snapshot, exact configuration, seed, calculation results, ledger events, code hash and result hash. Reproduction reads the preserved Parquet and refuses changed snapshots, specifications or engine code. If code changes, reproduce in the old recorded version; do not compare results across implementations as identical experiments. No signed or externally anchored tamper-resistant ledger is claimed.
+
+There is no automated order routing, paid data dependency or mandatory AI model. The application is a local research prototype. Suppressed signals, rejected files, negative P&L and insufficient evidence are valid outputs.

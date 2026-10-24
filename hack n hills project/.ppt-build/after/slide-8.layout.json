@@ -1,0 +1,12 @@
+{"schema":"openai.presentation.layout/v5","unit":"px","slide":{"id":"sl/fu1gfa1s","index":7,"layout":{"id":"ly/ux4ruhcv","name":"BLANK"},"backgroundColor":"rgba(255,255,255,1)","position":{"left":0,"top":0,"width":1920,"height":1080}},
+"elements":[
+{"id":"sh/v69gra90","kind":"shape","name":"Google Shape;149;p20","position":{"left":445.05,"top":602.26,"width":934.18,"height":29.08},"style":{"fontSize":18.67,"typeface":"Arial","color":"#000000","alignment":"center"},"geometry":"rect","lineWidth":0},
+{"id":"sh/xkfix8bi","kind":"shape","name":"Google Shape;150;p20","position":{"left":445.05,"top":791.25,"width":934.18,"height":29.08},"style":{"fontSize":18.67,"typeface":"Arial","color":"#000000","alignment":"center"},"geometry":"rect","lineWidth":0},
+{"id":"sh/byx0vitc","kind":"shape","name":"Google Shape;152;p20","position":{"left":268.14,"top":567.9,"width":1288.02,"height":29.08},"style":{"fontSize":18.67,"typeface":"Arial","color":"#000000","alignment":"center"},"geometry":"rect","lineWidth":0},
+{"id":"sh/axojmdcr","kind":"shape","name":"Google Shape;153;p20","position":{"left":268.14,"top":675.87,"width":1288.02,"height":29.08},"style":{"fontSize":18.67,"typeface":"Arial","color":"#000000","alignment":"center"},"geometry":"rect","lineWidth":0},
+{"id":"sh/knq1snut","kind":"textbox","name":"Google Shape;155;p20","position":{"left":206.54,"top":556.5,"width":1267.37,"height":258.52},"text":"Thank","style":{"fontSize":5.17,"typeface":"Caveat","color":"#1D1D1F","alignment":"center"},"geometry":"rect","lineWidth":0},
+{"id":"sh/jmh0zit8","kind":"textbox","name":"Google Shape;156;p20","position":{"left":400.51,"top":696.18,"width":1227.06,"height":268.13},"text":"you!","style":{"fontSize":5.36,"typeface":"Caveat","color":"#1D1D1F","alignment":"center"},"geometry":"rect","lineWidth":0},
+{"id":"im/bqh4rits","kind":"image","name":"Google Shape;157;p20","position":{"left":747.83,"top":-746.58,"width":429.23,"height":1924.06},"crop":{"left":0.38928,"top":0,"right":0.16455,"bottom":0}},
+{"id":"im/on65wnu1","kind":"image","name":"Google Shape;158;p20","position":{"left":33.46,"top":31.1,"width":760.14,"height":83.14}},
+{"id":"im/pofmp8bm","kind":"image","name":"Google Shape;159;p20","position":{"left":1314.5,"top":31.1,"width":587.88,"height":83.14}}
+]}

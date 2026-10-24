@@ -1,0 +1,116 @@
+{
+  "project": "AURUM X",
+  "status": "Content draft grounded in repository documentation; project topic inferred from workspace and awaiting any user correction.",
+  "source_files": ["README.md", "docs/validation.md", "docs/methodology.md", "docs/data_sources.md"],
+  "slides": [
+    {
+      "number": 1,
+      "template_section": "Team",
+      "title": "AURUM X",
+      "subtitle": "Commodity intelligence with evidence you can inspect",
+      "body": [
+        "Hack in Hills 2026 • Track 03",
+        "Local research prototype for MCX gold futures",
+        "Team: [Add team name]",
+        "Members: [Add names and roles]",
+        "Institution: [Add institution]"
+      ],
+      "notes": "The repository does not establish team identity. Leave editable placeholders; do not invent people or affiliations. The original README tagline is ‘Autonomous, adversarially verified commodity intelligence.’ This draft uses more concrete wording."
+    },
+    {
+      "number": 2,
+      "template_section": "Problem Statement & Theme",
+      "title": "A price gap is only the start of an investigation",
+      "body": [
+        "Gold contracts differ in lot size, purity, expiry and delivery location; quoted prices alone are not directly comparable.",
+        "Apparent opportunities can disappear after fees, delayed entry, liquidity constraints and lifecycle checks.",
+        "Historical research also needs strict cutoffs, source provenance and reproducible calculations.",
+        "Theme: evidence-first commodity intelligence—test a signal before trusting it."
+      ],
+      "callout": "Challenge: distinguish a measurable price relationship from a supported opportunity.",
+      "notes": "Problem framing derives from implemented contract normalization, replay and research-integrity checks. No prevalence, market-size or customer-research claim is implied."
+    },
+    {
+      "number": 3,
+      "template_section": "Solution",
+      "title": "One workflow from raw files to reproducible evidence",
+      "body": [
+        "Import daily contract files with explicit dates, provenance and rejection reports.",
+        "Normalize prices through a versioned Contract Genome; compare exact expiries and futures curves.",
+        "Stress relationships using paired scenarios, historical analogs and cost/delay sensitivity.",
+        "Replay decisions using only information available at each cutoff.",
+        "Export an evidence certificate with preserved data, assumptions, checks and result hashes."
+      ],
+      "callout": "Working local prototype • 13 workspaces • No paid API or required LLM",
+      "notes": "All listed features are implemented according to README and validation report. There is no brokerage or order execution."
+    },
+    {
+      "number": 4,
+      "template_section": "Architecture",
+      "title": "A shared research engine behind every workspace",
+      "body": [
+        "Streamlit + Plotly → FastAPI validation → ingestion and Contract Genome",
+        "DuckDB + Parquet → exact-contract analytics → scenarios, replay, analogs and sensitivity",
+        "Red Team checks → orchestration → SQLite experiment ledger + JSON evidence certificate",
+        "Preserved snapshots, configuration, seeds and hashes support deterministic reproduction."
+      ],
+      "callout": "Real and synthetic data remain separate throughout the pipeline.",
+      "notes": "Recommended visual: four connected stages (Interface → Data & rules → Research & checks → Evidence). DuckDB is the local market-data store; SQLite records experiments. Avoid implying externally secured or tamper-proof evidence."
+    },
+    {
+      "number": 5,
+      "template_section": "Market Research/Analysis",
+      "title": "Target users and value hypotheses",
+      "body": [
+        "Candidate users: commodity research desks, quantitative analysts and finance education teams.",
+        "Proposed value: a consistent workflow for contract comparison, assumption testing and reviewable research evidence.",
+        "Positioning hypothesis: combine contract rules, adverse scenarios and reproducibility in one local tool.",
+        "Business-model hypotheses: team licenses, research pilots or educational deployments.",
+        "Next validation: user interviews, workflow trials and willingness-to-pay research."
+      ],
+      "callout": "These hypotheses are unvalidated; no customer traction or market-size estimate is claimed.",
+      "notes": "No market research, interviews, pricing validation, competitive benchmarking or revenue evidence was found in the supplied project documentation. Present this slide explicitly as hypotheses."
+    },
+    {
+      "number": 6,
+      "template_section": "Future Scope",
+      "title": "The next milestone is credible real-history evaluation",
+      "body": [
+        "Obtain genuine daily Bhavcopy history and verified listing/tender calendars.",
+        "Complete historical specification hashes and dated fee provenance.",
+        "Commission independent methodology review and expand untouched evaluation periods.",
+        "Improve calibrated uncertainty and assessment of liquidity and execution feasibility.",
+        "Add cancellable background jobs for longer investigations."
+      ],
+      "callout": "Research roadmap: strengthen data and evidence before making execution claims.",
+      "notes": "These are planned priorities, not implemented features. Calibrated predictive probabilities and persistent cancellable jobs are currently absent."
+    },
+    {
+      "number": 7,
+      "template_section": "Extra (Optional)",
+      "title": "The strongest demo outcome is an honest verdict",
+      "body": [
+        "84 automated tests passed in the documented 9 October 2026 run.",
+        "Synthetic dataset: 2,160 records, four symbols, 12 fictional expiry identities.",
+        "Final synthetic investigation: 11 stress classes × 500 paths; Policy C rejected 17 candidate sessions and completed zero trades.",
+        "Red Team: 10 passed, 0 failed, 11 not evaluable. Preserved-snapshot reproduction returned matching hashes.",
+        "The five supplied annual reports yielded zero daily observations."
+      ],
+      "callout": "Verdict: INSUFFICIENT EVIDENCE • Real MCX trading performance remains unvalidated.",
+      "notes": "Source: docs/validation.md, executed validation dated 9 October 2026. These are documented prior checks, not rerun during presentation creation. Synthetic figures establish software behavior, not historical profitability. Real-mode investigation also returned insufficient evidence with zero observations."
+    },
+    {
+      "number": 8,
+      "template_section": "Thank You",
+      "title": "Thank you",
+      "subtitle": "AURUM X",
+      "body": [
+        "From a price difference to an inspectable research decision.",
+        "Live demo: import → investigate → audit → reproduce",
+        "Questions & discussion"
+      ],
+      "callout": "Evidence before confidence.",
+      "notes": "Do not add an invented contact, QR code, website, team identity or repository URL."
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+services:
+  api:
+    build: .
+    ports: ["127.0.0.1:8000:8000"]
+    environment:
+      AURUM_DATA_DIR: /app/runtime-data
+      AURUM_EVIDENCE_DIR: /app/evidence
+    volumes:
+      - aurum-data:/app/runtime-data
+      - aurum-evidence:/app/evidence
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+  frontend:
+    build: .
+    command: ["python", "-m", "streamlit", "run", "frontend/app.py", "--server.address", "0.0.0.0", "--server.port", "8501", "--server.headless", "true"]
+    ports: ["127.0.0.1:8501:8501"]
+    environment:
+      AURUM_API_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+volumes:
+  aurum-data:
+  aurum-evidence:

@@ -1,0 +1,677 @@
+{
+  "project": "AURUM X",
+  "audit_basis": "Read frontend/app.py, backend models and research services, README.md and docs/data_sources.md, methodology.md, validation.md. Code read only; no tests rerun for this audit.",
+  "classification_legend": {
+    "implemented": "Present in executable code and connected UI/API. Real-data validity is a separate question.",
+    "implemented_demo": "Functional only demonstrated on explicitly synthetic data or independent fixtures.",
+    "blocked": "Implementation exists but missing authentic data/provenance prevents real-world claim.",
+    "planned_or_unavailable": "Not implemented, not verified, or explicitly excluded."
+  },
+  "source_files": [
+    "frontend/app.py",
+    "backend/main.py",
+    "backend/models.py",
+    "backend/services/analytics.py",
+    "backend/services/analogs.py",
+    "backend/services/scenarios.py",
+    "backend/services/replay.py",
+    "backend/services/red_team.py",
+    "backend/services/genome.py",
+    "backend/services/orchestration.py",
+    "backend/services/ingestion.py",
+    "backend/services/storage.py",
+    "backend/services/ledger.py",
+    "backend/services/costs.py",
+    "README.md",
+    "docs/validation.md",
+    "docs/methodology.md",
+    "docs/data_sources.md"
+  ],
+  "workspaces": [
+    {
+      "name": "Command Center",
+      "status": "implemented",
+      "slide": 4,
+      "code": "frontend/app.py:326",
+      "visible_pitch": "Coverage dashboard + one-click full investigation",
+      "capabilities": [
+        "Imported-observation and exact-contract counts; first and last observed sessions.",
+        "Selected pair, research dates, cutoff, costs, slippage and seed summary.",
+        "One-click integrated investigation with preserved certificate.",
+        "Available exact-expiry contracts table and expandable dataset-quality metadata.",
+        "Results surface verdict, execution feasibility, metrics, nested research outputs and complete backend assumptions."
+      ]
+    },
+    {
+      "name": "Relative Value Explorer",
+      "status": "implemented",
+      "slide": 3,
+      "code": "backend/services/analytics.py:104",
+      "visible_pitch": "Four products • six pair scans • exact-expiry, purity and maturity normalization",
+      "capabilities": [
+        "GOLDM, GOLDTEN, GOLDGUINEA and GOLDPETAL; all six cross-product combinations.",
+        "Explicit expiry selection or one fixed exact contract per leg selected within cutoff; no stitched near-month series.",
+        "Raw quotation spread, quotation-unit normalization, purity adjustment and INR-per-fine-gram comparison.",
+        "Supported empirical maturity adjustment using bracketing same-product curves; no extrapolation.",
+        "Rolling references, mean/std Z-score and robust median/MAD Z-score fitted to strictly prior observations.",
+        "Volume/OI, lifecycle, geographic-basis and specification flags; current candidate/no-opportunity conclusion.",
+        "Normalized-series charts, selectable measures, calculated records and CSV export."
+      ]
+    },
+    {
+      "name": "Futures Curve Laboratory",
+      "status": "implemented",
+      "slide": 3,
+      "code": "backend/services/analytics.py:195",
+      "visible_pitch": "Historical curves • calendar spreads • carry, roll-down and residual shift",
+      "capabilities": [
+        "Historical cutoff curve for the first selected product; full investigations also calculate both products' curves.",
+        "Exact maturities, days to expiry and normalized prices.",
+        "Calendar spreads, maturity gaps, daily curve slope and annualized curve ratio.",
+        "Contango, backwardation, flat, mixed or insufficient-curve classification.",
+        "Unchanged-contract movement decomposed into modeled mechanical roll-down and residual curve shift.",
+        "Piecewise-linear interpolation only; unresolved funding/storage/delivery factors remain explicit."
+      ]
+    },
+    {
+      "name": "Mirage Investigation",
+      "status": "implemented",
+      "slide": 4,
+      "code": "backend/services/orchestration.py:50",
+      "visible_pitch": "Discover → explain → challenge → preserve; compare policies A/B/C",
+      "capabilities": [
+        "Integrated pipeline: normalized residual analysis, both futures curves, prior analogs, chronological replay, Red Team, Ghost Market and survival analysis.",
+        "Prospective full-policy gates for robust-score agreement, maturity/geographic/specification evidence, lifecycle, liquidity and stress medians.",
+        "A/B/C policy comparison on the same contracts, dates, capital, liquidity and cost/execution assumptions.",
+        "Typed stage results and stage-start/stage-completion/failure records.",
+        "Explicit verdicts: REJECTED, INSUFFICIENT EVIDENCE or SURVIVES MODELED TESTS; failed audits take precedence.",
+        "Conservative evidence gates include all 11 stress classes, evaluated audits, 30 completed held-out trades, positive held-out net P&L, current candidate and no unresolved open position.",
+        "Records rejected signals, no-opportunity conclusions and insufficient evidence as valid research outcomes."
+      ]
+    },
+    {
+      "name": "Ghost Market",
+      "status": "implemented",
+      "slide": 3,
+      "code": "backend/services/scenarios.py:41",
+      "visible_pitch": "Joint bootstrap • 11 stress classes • tail outcomes and fragility",
+      "capabilities": [
+        "Seeded circular moving-block bootstrap jointly samples paired returns to retain cross-leg and within-block dependence.",
+        "Integer lots, contract monetary multipliers, gross notional and residual fine-gold exposure.",
+        "Eleven base/adverse scenario classes with lifecycle/liquidity eligibility.",
+        "Median, mean, worst, fifth/ninety-fifth percentiles, positive scenario frequency and expected shortfall at 5% (requires at least 200 simulations).",
+        "Scenario distributions display up to 100 sampled outcomes; summary statistics use every configured path.",
+        "Historical return correlation, cost sensitivity and fragile/survives-modeled-medians indicator.",
+        "Adjustable random seed, path count, holding period, delay, costs/slippage and volatility multiplier.",
+        "Future fee assumptions freeze the cutoff-date schedule as a turnover-equivalent rate; no calibrated real-profit odds."
+      ]
+    },
+    {
+      "name": "Market Red Team",
+      "status": "implemented",
+      "slide": 3,
+      "code": "backend/services/red_team.py:11",
+      "visible_pitch": "21 executable checks with pass / fail / not-evaluable evidence",
+      "capabilities": [
+        "Each check records attack ID, invariant, source evidence, procedure, status, severity and explanation.",
+        "Twenty-one checks cover dates, purity, quotation units, integer lots, expiry identity, roll contamination, future leakage, delayed fills, actual source Opens, lifecycle, costs, P&L/attribution, liquidity, local research logging, holdout retuning, sample confidence, neutrality, sample size, geography, imputation and mode separation.",
+        "Future-mutation audit compares cutoff-limited results; clearly labeled temporary probes are used only when needed, with a relaxed-cutoff positive control.",
+        "Temporary probe rows never become market observations or research returns.",
+        "Independent source-rejoining, cost reconstruction, lot/P&L reconciliation and lifecycle rechecks.",
+        "Untested or unresolved checks never count as passes; audit failures reject the investigation."
+      ]
+    },
+    {
+      "name": "Time-Locked Replay",
+      "status": "implemented",
+      "slide": 3,
+      "code": "frontend/app.py:350; backend/services/replay.py:52",
+      "visible_pitch": "Session clock • delayed Open fills • walk-forward and frozen holdout",
+      "capabilities": [
+        "Load observed sessions, reveal one session per step, reset clock and view reveal progress.",
+        "Each UI step requests a new strict information cutoff; stale configuration invalidates the displayed replay.",
+        "Automatic expiry choice frozen from the first research session.",
+        "Close-based signals enter at later common-session Open; configurable holding period and entry/exit delays.",
+        "No Close/settlement substitution for missing Open; missing exit remains an open marked position.",
+        "Integer sizing constrained by combined fully funded gross notional, max lots and prior signal-session volume.",
+        "Lifecycle/specification changes, listing/tender/expiry and liquidity screens block invalid entries/fills.",
+        "Walk-forward thresholds fit prior absolute Z-scores; frozen final-period threshold and stable calendar boundary.",
+        "Chronological signal, suppression, rejection, entry and exit events; training windows and exact trade records.",
+        "Equity, realized/unrealized P&L, all-leg entry/exit costs, drawdown, return on capital, volatility, descriptive Sharpe and win rate.",
+        "Gold-factor contribution, relative-value accounting residual and quantified residual fine-metal exposure.",
+        "Held-out trade count/net P&L, training/snapshot hashes and reference baselines.",
+        "Reference comparisons: cash/no-trade, exact-expiry gold buy-and-hold mark and fixed long/short integer hedge mark; marked benchmarks do not establish actual final liquidation."
+      ]
+    },
+    {
+      "name": "Profit Survival Map",
+      "status": "implemented",
+      "slide": 3,
+      "code": "backend/services/scenarios.py:141",
+      "visible_pitch": "Cost × delay heatmap • break-even • holding, exit, liquidity and slippage slices",
+      "capabilities": [
+        "Recomputes actual chronological replay for each cost/entry-delay grid cell, including integer quantities and cash flows.",
+        "Heatmap, trade count, gross/net P&L, drawdown and evaluated/not-evaluable flags.",
+        "Separate sensitivity slices for additional exit delay, slippage, minimum volume and holding period.",
+        "Volatility, liquidity, expiry-restriction and combined-stress summaries kept distinct from historical replay.",
+        "Highest tested profitable cost boundary for each delay.",
+        "Conditional total, fee and slippage break-even rates derived from zero-fee trade turnover.",
+        "Survival requires resolved positions, completed trades, positive completed net P&L, positive total equity change and lifecycle validity."
+      ]
+    },
+    {
+      "name": "Anomaly DNA",
+      "status": "implemented",
+      "slide": 3,
+      "code": "backend/services/analogs.py:10",
+      "visible_pitch": "11-feature analog search • prior-only outcomes • interpretable similarity",
+      "capabilities": [
+        "Same exact-contract-pair search using 11 interpretable features.",
+        "Features: Z-score, robust Z-score, spread change, gold volatility, log volume, log OI, residual volatility, trend, persistence, time to expiry and maturity gap.",
+        "Robust median/MAD scaler fitted only to completed prior candidates, with standard-deviation fallback.",
+        "Distance-ranked historical matches; overlapping outcome horizons suppressed.",
+        "Every analog outcome completes strictly before the query cutoff.",
+        "Matched dates, feature vectors, similarity distance, lifecycle flag and signed residual outcome.",
+        "Sample count, median residual change and narrowing frequency; explicitly descriptive rather than profit prediction."
+      ]
+    },
+    {
+      "name": "Contract Genome",
+      "status": "implemented",
+      "slide": 4,
+      "code": "backend/services/genome.py",
+      "visible_pitch": "Versioned contract rules • unit/purity/location • integer sizing and lifecycle",
+      "capabilities": [
+        "Inspectable specification registry and observed exact contract identities/lifecycle coverage.",
+        "Expiry-contract-effective versions distinguish simultaneously traded contracts.",
+        "Four gold products with distinct lot size, quotation unit, purity and quote location.",
+        "Normalization, lot value, fine grams per lot and specification provenance flags.",
+        "Integer hedge minimizes residual fine-metal fraction within maximum lots and combined fully funded gross notional.",
+        "Residual fine grams, residual fraction and exact-metal-neutral indicator.",
+        "Lifecycle gating for verified spec, mode match, observation validity, listing date, tender start and expiry.",
+        "Separate fictional synthetic registry; unverified real provenance/calendar evidence blocks execution claims.",
+        "Real registry retains 12 reviewed official PDF versions plus four unverified baselines; original PDF byte hashes remain unavailable."
+      ]
+    },
+    {
+      "name": "Evidence Center",
+      "status": "implemented",
+      "slide": 4,
+      "code": "frontend/app.py:395; backend/services/orchestration.py:80",
+      "visible_pitch": "Experiment ledger • JSON certificate • preserved-snapshot reproduction",
+      "capabilities": [
+        "Mode-filtered investigation history, saved-result selection and inspection.",
+        "JSON export of complete Evidence Certificate.",
+        "Configuration, exact contracts/expiries, source files/hashes, data quality, specification snapshot and historical cutoff.",
+        "Preserved canonical Parquet snapshot, seed, model version, code/specification/snapshot/result hashes.",
+        "All stage outputs, verdict, execution-feasibility status, cost assumptions, limitations and local ledger.",
+        "Request/planned-test/stage/conclusion/failure/reproduction history; count of prior similar experiments flags sample reuse.",
+        "One-click deterministic reproduction returns matching/nonmatching result hashes.",
+        "Reproduction refuses changed data snapshots, specification registries or engine code.",
+        "Local reproducibility and tamper detection are supported; externally anchored tamper resistance is not claimed."
+      ]
+    },
+    {
+      "name": "Data Management",
+      "status": "implemented",
+      "slide": 4,
+      "code": "frontend/app.py:420; backend/services/ingestion.py; backend/services/storage.py",
+      "visible_pitch": "Batch file ingestion • strict validation/provenance • isolated synthetic demo",
+      "capabilities": [
+        "Batch upload CSV, XLS, XLSX and ZIP through the UI; backend also reads TSV and HTML tables disguised as XLS.",
+        "Explicit MDY/DMY source-date convention; separate requested, returned, observation and expiry dates.",
+        "Canonical OHLC/settlement/volume/OI/trading-value schema with source file, hash, timestamp, validity and mode.",
+        "Header aliases; restrict to supported gold futures; unsupported instruments/products counted as skipped.",
+        "Strict positive/finite price and OHLC checks; nonnegative integer liquidity; expiry/date validation.",
+        "Missing observations/prices remain missing; no silent forward filling or inferred holidays.",
+        "Exact duplicate handling, raw-file duplicate hashes and quarantine for conflicting records.",
+        "Annual-report rejection with preserved source bytes, file hashes and rejection reports.",
+        "DuckDB market-data source of truth and mode-specific Parquet snapshots.",
+        "Browse by dates/product/row limit, inspect query metadata and export displayed CSV.",
+        "Import/source-provenance history.",
+        "Seeded isolated synthetic generator; separate mode selection and persistent synthetic banner.",
+        "Bounded uploads, safe in-memory ZIP processing, traversal/symlink/encryption/nesting/expansion safeguards; no macros/scripts/formulas executed."
+      ]
+    },
+    {
+      "name": "Settings",
+      "status": "implemented",
+      "slide": 4,
+      "code": "frontend/app.py:477; backend/models.py",
+      "visible_pitch": "Explicit research controls • dated fees • seed/resources/API health",
+      "capabilities": [
+        "All-in cost bps, separate slippage and volatility stress.",
+        "Optional nonoverlapping effective-dated JSON fee schedules validated through the API.",
+        "Per-lot brokerage, exchange/regulatory bps, buy/sell taxes, GST and extra per-lot charges; selected by fill date.",
+        "Random seed, simulation paths and API request timeout.",
+        "Research API address and health-connection check.",
+        "Browser-session preference persistence.",
+        "Sidebar controls: real/synthetic mode, products, exact expiries, dates/cutoff, historical window, A/B/C policy and Z threshold.",
+        "Execution controls: capital, maximum lots, minimum volume/OI, holding period, entry delay and exit delay.",
+        "Result/configuration matching invalidates stale results after assumptions change.",
+        "No required LLM, paid API or collected model credentials."
+      ]
+    }
+  ],
+  "cross_cutting_features": [
+    {
+      "feature": "Plotly charts, selectable chart measures, distributions, cost/delay heatmap, full JSON evidence, expandable result tables and CSV downloads.",
+      "slide": 4,
+      "status": "implemented"
+    },
+    {
+      "feature": "FastAPI HTTP boundary, Pydantic bounded requests, validation errors, upload limits, structured request logs and UUID-based artifact access.",
+      "slide": 4,
+      "status": "implemented"
+    },
+    {
+      "feature": "Real/synthetic partitioning at queries, snapshots and UI; synthetic warning on all pages.",
+      "slide": 4,
+      "status": "implemented"
+    },
+    {
+      "feature": "Readable API-offline/timeout/validation handling and spinners during bounded calculations.",
+      "slide": 4,
+      "status": "implemented"
+    },
+    {
+      "feature": "Local Windows launch flow, pinned environment and API documentation; Docker/Compose source supplied.",
+      "slide": 6,
+      "status": "implemented; Docker runtime unverified"
+    }
+  ],
+  "stress_classes": [
+    "Base paired bootstrap",
+    "Increased transaction costs",
+    "Execution slippage",
+    "Delayed entries",
+    "Delayed exits",
+    "Higher gold volatility",
+    "Correlated adverse movements",
+    "Residual spread expansion",
+    "Thin liquidity",
+    "Contract expiry restrictions",
+    "Combined stress"
+  ],
+  "audit_checks": [
+    {
+      "id": "DATE",
+      "name": "Actual-date parsing and requested/returned mismatch"
+    },
+    {
+      "id": "PURITY",
+      "name": "Purity normalization"
+    },
+    {
+      "id": "QUOTATION",
+      "name": "Quotation versus trading units"
+    },
+    {
+      "id": "INTEGER",
+      "name": "Integer lot quantities"
+    },
+    {
+      "id": "EXPIRY",
+      "name": "Exact expiry matching"
+    },
+    {
+      "id": "ROLL",
+      "name": "Contract-roll contamination"
+    },
+    {
+      "id": "FUTURE",
+      "name": "Future-data leakage"
+    },
+    {
+      "id": "SAME_DAY",
+      "name": "Signal precedes Open fill"
+    },
+    {
+      "id": "SOURCE",
+      "name": "Actual execution-source Open"
+    },
+    {
+      "id": "DELIVERY",
+      "name": "Lifecycle/delivery restrictions"
+    },
+    {
+      "id": "COST",
+      "name": "All-leg entry/exit fees and slippage"
+    },
+    {
+      "id": "ATTRIBUTION",
+      "name": "P&L and attribution reconciliation"
+    },
+    {
+      "id": "LIQUIDITY",
+      "name": "Declared liquidity screens"
+    },
+    {
+      "id": "SNOOPING",
+      "name": "Local experiment recording"
+    },
+    {
+      "id": "RETUNING",
+      "name": "Frozen holdout parameters and reuse"
+    },
+    {
+      "id": "CONFIDENCE",
+      "name": "Held-out outcome count"
+    },
+    {
+      "id": "NEUTRALITY",
+      "name": "Residual fine-metal exposure"
+    },
+    {
+      "id": "SAMPLE",
+      "name": "Minimum estimation sample"
+    },
+    {
+      "id": "GEOGRAPHY",
+      "name": "Quote-location compatibility"
+    },
+    {
+      "id": "IMPUTATION",
+      "name": "No silently substituted prices"
+    },
+    {
+      "id": "SYNTHETIC",
+      "name": "Real/synthetic separation"
+    }
+  ],
+  "comparison_modes": [
+    {
+      "name": "Policy A",
+      "description": "Normalized spread scanner; excludes maturity adjustment.",
+      "slide": 5
+    },
+    {
+      "name": "Policy B",
+      "description": "Adds supported curve-relative maturity adjustment.",
+      "slide": 5
+    },
+    {
+      "name": "Policy C",
+      "description": "Adds robust MAD agreement, basis/specification/lifecycle/liquidity checks and prospective paired-bootstrap survival.",
+      "slide": 5
+    },
+    {
+      "name": "Reference baselines",
+      "description": "Cash, exact-expiry gold buy-and-hold mark and fixed integer hedge mark; descriptive, costed reference comparisons.",
+      "slide": 5
+    }
+  ],
+  "documented_validation": {
+    "date": "2026-10-09",
+    "automated_tests": "84 passed, 0 failed, 0 skipped; all 13 pages covered by six Streamlit AppTest tests.",
+    "dependencies": "pip check reported no broken requirements.",
+    "scope": [
+      "Independent monetary fixtures and property checks",
+      "ingestion/date/archive safety",
+      "contract versions and lifecycle gates",
+      "future/holdout mutations and replay prefix invariance",
+      "joint-bootstrap dependence",
+      "cost/delay sensitivity",
+      "prior-only analog cutoffs",
+      "audit positive/negative controls",
+      "FastAPI-storage-engine integration",
+      "snapshot reproduction/tamper detection",
+      "all 13 UI workspaces"
+    ],
+    "synthetic_demo": {
+      "records": 2160,
+      "modeled_weekdays": 180,
+      "symbols": 4,
+      "fictional_expiry_identities": 12,
+      "pair": "GOLDM/GOLDTEN",
+      "period": "2025-01-02 to 2025-09-10",
+      "seed": 42,
+      "stress_classes": 11,
+      "paths_per_class": 500,
+      "prior_completed_analogs": 5,
+      "policy_c_rejected_candidate_sessions": 17,
+      "policy_c_completed_trades": 0,
+      "audit": {
+        "pass": 10,
+        "fail": 0,
+        "not_evaluable": 11
+      },
+      "reproduction": "match: true; matching result hashes",
+      "verdict": "INSUFFICIENT EVIDENCE",
+      "execution_feasibility": "Unverified",
+      "full_live_http_pipeline_seconds": 11.8,
+      "timing_caveat": "Documented small-dataset observation on this machine, not a general benchmark.",
+      "policy_a_b_engine_demo": "A and B each completed six synthetic trades; no claim of real market profitability. They match because the selected pair has a common expiry and zero maturity differential."
+    },
+    "authentic_data": "Five supplied files are annual activity reports, including one duplicate; all yielded zero daily observations and zero real expiry histories.",
+    "interpretation": "Software functionality is demonstrated; authentic MCX performance, calibrated forecasts and real execution remain unvalidated."
+  },
+  "planned_blocked_or_unavailable": [
+    {
+      "item": "Authentic daily MCX backtest and trading-edge validation",
+      "status": "blocked",
+      "reason": "Supplied annual reports contain no daily contract prices."
+    },
+    {
+      "item": "Verified real execution/lifecycle evidence",
+      "status": "blocked",
+      "reason": "Missing official listing/tender calendars, original source-document hashes and historical fee provenance."
+    },
+    {
+      "item": "Automatic official daily-history download",
+      "status": "unavailable",
+      "reason": "Manual upload is the working acquisition route; automated downloading is not claimed."
+    },
+    {
+      "item": "Optional language-model assistant",
+      "status": "not implemented",
+      "reason": "All current deterministic functionality runs without it."
+    },
+    {
+      "item": "Cointegration/error-correction models",
+      "status": "not implemented"
+    },
+    {
+      "item": "Calibrated predictive probabilities and statistical performance guarantees",
+      "status": "not implemented"
+    },
+    {
+      "item": "Causal alpha attribution",
+      "status": "not implemented",
+      "reason": "Current attribution is an accounting decomposition."
+    },
+    {
+      "item": "Brokerage/order execution and actual two-leg fills",
+      "status": "not implemented"
+    },
+    {
+      "item": "Margin/leverage model",
+      "status": "not implemented",
+      "reason": "Current capital constraint funds combined gross notional."
+    },
+    {
+      "item": "Theoretical carry with verified funding/storage/tax/geography adjustments",
+      "status": "unavailable",
+      "reason": "Current curve analysis is empirical interpolation."
+    },
+    {
+      "item": "Persistent background job queue, fine-grained cancellation and calculation-progress percentages",
+      "status": "not implemented",
+      "reason": "Current long calculations use spinner and bounded inputs; replay reveal progress is implemented."
+    },
+    {
+      "item": "Docker build/runtime",
+      "status": "unverified",
+      "reason": "Docker executable was unavailable in documented environment."
+    },
+    {
+      "item": "Externally anchored tamper-resistant ledger",
+      "status": "not implemented",
+      "reason": "Local snapshots and hashes support reproduction/change detection only."
+    },
+    {
+      "item": "Independent methodology review and untouched multi-period evaluation",
+      "status": "planned"
+    },
+    {
+      "item": "Customer interviews, willingness-to-pay, market sizing and traction",
+      "status": "unvalidated hypotheses"
+    }
+  ],
+  "eight_slide_coverage_plan": [
+    {
+      "slide": 1,
+      "official_section": "Team",
+      "purpose": "Identify project and track without inventing team identity.",
+      "visible_text": [
+        "AURUM X",
+        "Track 03 · Commodity Derivatives Intelligence",
+        "A complete, inspectable research workflow for four MCX gold products",
+        "[Team name] · [Members / roles] · [Institution]"
+      ],
+      "coverage": "Project, track, supported scope. Editable team placeholders."
+    },
+    {
+      "slide": 2,
+      "official_section": "Problem Statement & Theme",
+      "purpose": "Map commodity challenge to precise research risks.",
+      "visible_text": [
+        "Price gaps can reflect quotation units, purity, maturity or delivery basis.",
+        "Apparent edge can disappear under fees, slippage, delays, liquidity and expiry restrictions.",
+        "Future leakage, contract rolls and repeated tuning can create misleading backtests.",
+        "Our response: normalize → investigate → challenge → replay → preserve.",
+        "Four products: GOLDM · GOLDTEN · GOLDGUINEA · GOLDPETAL."
+      ],
+      "coverage": "Track relevance; normalization, basis risk, execution assumptions, research integrity."
+    },
+    {
+      "slide": 3,
+      "official_section": "Solution",
+      "purpose": "Show every analytical workspace in a readable feature grid.",
+      "suggested_layout": "Seven small cards; 2–3 concise capability lines per card. Put full capability inventory in speaker notes.",
+      "visible_cards": [
+        {
+          "title": "Relative Value Explorer",
+          "text": "Six pair scans · exact expiries · quotation/purity normalization · Z + robust MAD · maturity/basis flags"
+        },
+        {
+          "title": "Futures Curve Laboratory",
+          "text": "Historical curves · calendar spreads · contango/backwardation · empirical carry · roll-down + residual shift"
+        },
+        {
+          "title": "Ghost Market",
+          "text": "Joint block bootstrap · 11 stress classes · cost sensitivity · tail summaries + scenario distributions"
+        },
+        {
+          "title": "Market Red Team",
+          "text": "21 evidence-backed checks · leakage/source/lot/cost/lifecycle audits · pass/fail/unresolved"
+        },
+        {
+          "title": "Time-Locked Replay",
+          "text": "Session clock · later-Open fills · integer sizing · walk-forward + frozen holdout · equity, P&L + exposure"
+        },
+        {
+          "title": "Profit Survival Map",
+          "text": "Cost × delay heatmap · conditional break-even · holding/exit/slippage/liquidity slices"
+        },
+        {
+          "title": "Anomaly DNA",
+          "text": "11 interpretable features · robust distance · prior-only, non-overlapping analogs · residual outcomes"
+        }
+      ],
+      "footer": "Working local workflow; all financial outcomes remain hypothetical."
+    },
+    {
+      "slide": 4,
+      "official_section": "Architecture",
+      "purpose": "Cover remaining six workspaces plus platform/data/control features.",
+      "suggested_layout": "Four connected stages, with a compact controls/footer band. All six workspace names remain visible.",
+      "visible_stages": [
+        {
+          "title": "1 · Data Management + Contract Genome",
+          "text": "Batch CSV/XLS/XLSX/ZIP · strict dates/duplicates · raw hashes · DuckDB/Parquet · versioned lot/purity/location/lifecycle rules"
+        },
+        {
+          "title": "2 · Command Center + Mirage Investigation",
+          "text": "Coverage dashboard → one-click staged pipeline → candidate rejection / evidence verdict → policy comparison"
+        },
+        {
+          "title": "3 · Settings + shared engines",
+          "text": "Exact contracts/cutoff · window/Z · capital/lots/liquidity · holding/delays · costs + dated fees · seed/path/volatility controls"
+        },
+        {
+          "title": "4 · Evidence Center",
+          "text": "SQLite experiment ledger · complete JSON certificate · snapshot/spec/code/result hashes · export + deterministic reproduction"
+        }
+      ],
+      "footer": "Streamlit + Plotly → validated FastAPI → Python engines | charts + CSV/full JSON | API health | strict real/synthetic separation",
+      "notes_add": "Fee components: brokerage, exchange, regulatory, buy/sell taxes, GST, extra per-lot penalty. Browser-session settings, stale-result invalidation, safe ZIP/input limits and offline/timeout handling. Backend also supports TSV/HTML-XLS."
+    },
+    {
+      "slide": 5,
+      "official_section": "Market Research/Analysis",
+      "purpose": "Show comparison/baseline features while labeling commercial research as hypotheses.",
+      "suggested_layout": "Left: target users/value hypotheses. Right: implemented policy and benchmark analysis.",
+      "visible_text": [
+        "Target-user hypotheses: research desks, quantitative analysts, finance education teams.",
+        "Value hypothesis: compare contracts, expose fragile assumptions and export reviewable evidence in one local workflow.",
+        "Policy A: normalized spread. Policy B: maturity-aware. Policy C: robust-score + lifecycle/basis + prospective stress gates.",
+        "Same contracts, periods, capital and costs; reference marks: cash, gold buy-and-hold, fixed integer hedge.",
+        "Commercial hypotheses: research pilots, team licenses or educational deployment; validate through interviews and workflow trials."
+      ],
+      "footer": "No customer traction, market-size or willingness-to-pay claim."
+    },
+    {
+      "slide": 6,
+      "official_section": "Future Scope",
+      "purpose": "Present missing features/validation honestly as roadmap rather than accomplished product functionality.",
+      "visible_text": [
+        "Real data first: daily Bhavcopy, official listing/tender calendars, historical source hashes and fees.",
+        "Research validation: independent review, more untouched periods and calibrated uncertainty.",
+        "Product depth: cancellable background jobs; optional LLM assistance and cointegration/error-correction research.",
+        "Execution research: verified liquidity/fills, margin and economic carry inputs before any brokerage integration.",
+        "Deployment: verify Docker runtime and larger-history performance."
+      ],
+      "footer": "Current product is local research software; live execution and verified real returns are not established.",
+      "notes_add": "No externally anchored tamper-proof ledger, calibrated probability of profit, causal alpha or statistical guarantee. These are unavailable, not existing capabilities."
+    },
+    {
+      "slide": 7,
+      "official_section": "Extra (Optional)",
+      "purpose": "Concrete feature-complete demo evidence and stress coverage.",
+      "suggested_layout": "Top metric row; middle 11 stress classes grouped; lower demo journey and honest outcome.",
+      "visible_text": [
+        "84 tests passed (documented 9 Oct 2026) · all 13 workspaces exercised.",
+        "2,160 synthetic records · four products · 12 fictional expiries · five completed prior analogs.",
+        "11 scenarios × 500 paths: base; costs; slippage; entry/exit delay; volatility; adverse correlation; spread expansion; liquidity; expiry; combined stress.",
+        "Demo: import/provenance → scan + curve → full investigation → replay + sensitivity → inspect/export/reproduce.",
+        "Policy C: 17 candidates rejected; zero trades. Audit: 10 pass / 0 fail / 11 unresolved. Reproduction: matching hashes."
+      ],
+      "footer": "INSUFFICIENT EVIDENCE is a valid result. Annual source reports supply zero daily history; real MCX profitability remains unvalidated.",
+      "notes_add": "21 checks grouped in detail: date/purity/quotation; integer/expiry/roll; future/same-day/source; delivery/cost/attribution/liquidity; snooping/retuning/confidence/sample; neutrality/geography/imputation/synthetic. Six synthetic A/B trades exercise money/P&L engine; figures must never be presented as historic returns."
+    },
+    {
+      "slide": 8,
+      "official_section": "Thank You",
+      "purpose": "Close with compelling demonstration invitation.",
+      "visible_text": [
+        "Thank you",
+        "AURUM X",
+        "From a price gap to a reproducible research decision.",
+        "13 workspaces · four products · six pairs · one evidence trail",
+        "Demo / Questions"
+      ],
+      "coverage": "Concise capability recall; do not invent contact/URL/QR."
+    }
+  ],
+  "layout_caveat": "The eight-slide official format can visibly showcase all 13 workspaces and every material capability family. Individual UI fields, all output metrics and every audit procedure belong in speaker notes for completeness; placing every atomic item on slides would make the deck unreadable.",
+  "important_wording": [
+    "Call scenarios counterfactual and demonstration prices synthetic.",
+    "Use 'modeled/inspectable/reproducible' rather than 'proven profitable' or 'verified execution'.",
+    "Label market and revenue statements as hypotheses.",
+    "Do not claim all 21 Red Team checks passed; final documented demo has 11 not evaluable.",
+    "Do not imply LLM/agentic orchestration is implemented: the orchestration is deterministic.",
+    "Do not describe the local hash ledger as tamper-proof.",
+    "Use 'documented 9 October test run' unless main agent reruns tests."
+  ]
+}
