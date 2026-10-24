@@ -1,10 +1,12 @@
 """Local DuckDB observations, immutable raw bytes and reproducible Parquet snapshots."""
 from __future__ import annotations
 
+import csv
 import json
 import re
 import threading
 import uuid
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -40,6 +42,14 @@ class Storage:
             raise ValueError("mode must be real or synthetic")
         return mode
 
+    @staticmethod
+    def _provenance(mode):
+        # Parsing a plausible exchange export does not authenticate its origin.
+        # There is intentionally no user-supplied switch to certify real data.
+        return {"provenance": "SYNTHETIC TEST DATA" if mode == "synthetic" else "IMPORTED UNVERIFIED DATA",
+                "source_authenticity_verified": False,
+                "source_verification": "not_applicable_synthetic" if mode == "synthetic" else "not_verified"}
+
     def load(self, mode="real", start=None, end=None, symbols=None) -> pd.DataFrame:
         params = [self._mode(mode)]
         where = ["mode = ?"]
@@ -61,24 +71,50 @@ class Storage:
                 rows = con.execute("SELECT report FROM imports WHERE mode=? ORDER BY timestamp DESC", [self._mode(mode)]).fetchall()
             else:
                 rows = con.execute("SELECT report FROM imports ORDER BY timestamp DESC").fetchall()
-        return [json.loads(r[0]) for r in rows]
+        reports = [json.loads(r[0]) for r in rows]
+        for report in reports:
+            report.update(self._provenance(report.get('mode', 'real')))
+            report.setdefault('source_identifier', 'sha256:' + report['source_hash'])
+            report.setdefault('source_url', None)
+        return reports
+
+    def sessions(self, mode="real", start=None, end=None, symbols=None) -> list[str]:
+        """Return observed session dates without loading or truncating market rows."""
+        params = [self._mode(mode)]
+        where = ["mode = ?"]
+        if start:
+            where.append("date >= ?")
+            params.append(str(start))
+        if end:
+            where.append("date <= ?")
+            params.append(str(end))
+        if symbols:
+            where.append("symbol IN (" + ",".join("?" for _ in symbols) + ")")
+            params.extend(str(symbol).strip().upper() for symbol in symbols)
+        with self.lock, duckdb.connect(str(self.db_path)) as con:
+            rows = con.execute("SELECT DISTINCT date FROM observations WHERE " + " AND ".join(where) + " ORDER BY date", params).fetchall()
+        return [row[0] for row in rows]
 
     def summary(self, mode="real") -> dict:
         frame = self.load(mode)
         imports = self.imports(mode)
         dates = sorted(frame["date"].unique()) if len(frame) else []
-        return {"mode": mode, "rows": len(frame), "records": len(frame), "count": len(frame),
+        return {"mode": mode, **self._provenance(mode), "rows": len(frame), "records": len(frame), "count": len(frame),
                 "symbols": sorted(frame["symbol"].unique().tolist()) if len(frame) else [],
                 "sessions": len(dates), "start": dates[0] if dates else None, "end": dates[-1] if dates else None,
                 "date_range": {"start": dates[0] if dates else None, "end": dates[-1] if dates else None},
                 "contracts": int(frame[["symbol", "expiry"]].drop_duplicates().shape[0]),
                 "imports": imports, "import_count": len(imports),
-                "sources": int(frame["source_hash"].nunique()), "has_real_history": mode == "real" and len(frame) > 0,
+                "sources": int(frame["source_hash"].nunique()), "has_real_history": False,
+                "has_imported_history": mode == "real" and len(frame) > 0,
                 "quality": {"warning_rows": int((frame["validation_status"] == "warning").sum()),
                             "rejected_rows": sum(i.get("rows_rejected", 0) for i in imports)},
-                "message": "No daily MCX observations imported." if frame.empty and mode == "real" else ("Synthetic demonstration data; not MCX market history." if mode == "synthetic" else "Imported daily observations; execution and specification checks still apply.")}
+                "message": "No daily MCX observations imported." if frame.empty and mode == "real" else ("Synthetic demonstration data; not MCX market history." if mode == "synthetic" else "Imported unverified observations; source authenticity, publication timing, execution and historical specifications are not independently certified.")}
 
     def _save_report(self, report: dict):
+        report.update(self._provenance(report['mode']))
+        report.setdefault('source_identifier', 'sha256:' + report['source_hash'])
+        report.setdefault('source_url', None)
         report["id"] = str(uuid.uuid4())
         report["timestamp"] = datetime.now(timezone.utc).isoformat()
         with self.lock, duckdb.connect(str(self.db_path)) as con:
@@ -152,6 +188,13 @@ class Storage:
                 report["rows_imported"] = len(inserted)
                 report["rows_rejected"] += report["conflicts"]
                 if inserted:
+                    imported_frame = pd.DataFrame(inserted, columns=COLUMNS)
+                    report['imported_coverage'] = {
+                        'start': imported_frame['date'].min(), 'end': imported_frame['date'].max(),
+                        'contracts': [{'symbol': symbol, 'expiry': expiry, 'first_observed': group['date'].min(),
+                                       'last_observed': group['date'].max(), 'sessions': int(group['date'].nunique())}
+                                      for (symbol, expiry), group in imported_frame.groupby(['symbol', 'expiry'])],
+                    }
                     parquet = self.parquet_dir / f"{mode}.parquet"
                     temp_path = self.parquet_dir / f"{mode}.{uuid.uuid4().hex}.parquet"
                     try:
@@ -174,7 +217,7 @@ class Storage:
         except ImportProblem as exc:
             report.update(status="rejected", code=exc.code, error=str(exc), profile=exc.profile)
             report["rows_rejected"] = exc.profile.get("source_rows", 0)
-        except (ValueError, OSError, KeyError, ImportError) as exc:
+        except (ValueError, OSError, KeyError, ImportError, csv.Error, zipfile.BadZipFile, SyntaxError) as exc:
             report.update(status="rejected", code="parse_error", error=f"Could not read file: {exc}")
         return self._save_report(report)
 
@@ -190,6 +233,9 @@ class Storage:
             universe = set(frame.loc[(frame["date"] >= group["date"].min()) & (frame["date"] <= group["date"].max()), "date"])
             missing = sorted(universe - set(group["date"]))
             results.append({"symbol": symbol, "expiry": expiry, "contract_id": f"{symbol}:{expiry}",
+                            **self._provenance(mode),
+                            "source_hashes": sorted(group['source_hash'].dropna().unique().tolist()),
+                            "validation_statuses": sorted(group['validation_status'].dropna().unique().tolist()),
                             "first_observed": group["date"].min(), "last_observed": group["date"].max(),
                             "sessions": len(group), "latest_close": float(row["close"]),
                             "missing_vs_observed_sessions": missing, "missing_session_count": len(missing),

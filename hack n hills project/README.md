@@ -28,6 +28,17 @@ Alternatively, use two terminals:
 
 Use **one API worker**, because DuckDB is local storage. Configuration comes from process environment variables in `.env.example`; this file is a reference, not an automatically loaded secret file. `AURUM_DATA_DIR`, `AURUM_EVIDENCE_DIR`, and `AURUM_API_URL` have local defaults. Settings in the UI persist within the browser session; each certificate preserves its complete research configuration.
 
+## Workspace improvements
+
+- Use the **Workspace** selector and Command Center shortcuts to navigate. Empty datasets offer direct links to the synthetic demonstration and market-data import.
+- Open **Research presets** to save named settings, load them later in the session, or download/import a portable JSON preset. Saving and importing validate against the API. Presets preserve the data mode, pair, exact expiries, dates, costs and execution assumptions. Download presets to keep them after closing the session; up to 20 can be saved per session.
+- Every engine result has a **Download result · JSON** action containing the submitted configuration and returned evidence.
+- Coverage is reused for 30 seconds between interactions. **Refresh data and connection** fetches fresh coverage and clears live results. Imports, demo generation and connection changes also invalidate old results; preserved evidence certificates remain available.
+- Replay loads distinct observed dates through `/api/sessions`, so sessions are not lost to the observation table's row limit.
+- Imports process outside the API event loop. Malformed spreadsheet and CSV files return per-file rejection reports, allowing valid files in the same batch to continue.
+
+Buttons use standard controls with descriptive labels. No decorative animation is added.
+
 ## Demonstrate the complete workflow
 
 1. Open **Data Management → Source provenance** to see the five supplied files, their hashes, the duplicate 2023 report, and `annual_aggregate` rejections.
@@ -87,6 +98,8 @@ Default fees are explicit all-in bps assumptions. Optional non-overlapping dated
 ```
 
 Tests exercise independent monetary fixtures, Hypothesis-generated P&L symmetry, strict dates, unsafe archives, version changes, lifecycle blocks, future/holdout mutations, same-day fill defects, missing opens, joint-bootstrap dependence, sensitivity changes, analog cutoffs, evidence reproduction, snapshot tampering, and all 13 Streamlit pages. UI boundary tests mock HTTP; integration tests use actual FastAPI/storage/engines. See [validation report](docs/validation.md) for executed results and live-browser checks.
+
+Tests use temporary data and evidence directories, so they can run while the local app is open without touching its research database. Additional regressions cover preset round trips, invalid uploads, metadata refresh, failed recalculations and replay-session completeness.
 
 Docker configuration is included:
 

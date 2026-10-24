@@ -1,6 +1,6 @@
 import numpy as np
 
-from backend.services.scenarios import paired_block_bootstrap, ghost_market, survival_map
+from backend.services.scenarios import paired_block_bootstrap, ghost_market, survival_map, REQUIRED_SCENARIOS
 from tests.test_financial import CONFIG, market_fixture
 
 
@@ -16,7 +16,7 @@ def test_ghost_seed_and_all_stress_classes():
     data = market_fixture(70)
     first = ghost_market(data, CONFIG)
     assert first == ghost_market(data, CONFIG)
-    assert len(first["scenarios"]) == 11
+    assert {scenario['name'] for scenario in first['scenarios']} == REQUIRED_SCENARIOS
     base = first["scenarios"][0]
     cost = first["scenarios"][1]
     assert cost["median_net_pnl"] < base["median_net_pnl"]
@@ -32,4 +32,4 @@ def test_survival_grid_reexecutes_cost_and_delay():
     for delay in result["axes"]["execution_delay"]:
         column = [c for c in result["cells"] if c["execution_delay"] == delay]
         assert column[0]["net_pnl"] >= column[-1]["net_pnl"]
-    assert len(result["slices"]) == 4
+    assert {item['parameter'] for item in result['slices']} == {'exit_delay', 'slippage_bps', 'min_volume', 'holding_days', 'capital', 'max_lots'}

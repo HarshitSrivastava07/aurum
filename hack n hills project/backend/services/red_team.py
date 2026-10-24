@@ -118,7 +118,29 @@ def audit(df, config, analysis=None, replay_result=None, investigation=None, pri
         ("ATTRIBUTION", "Incorrect performance attribution", "Leg P&L minus costs equals net; components reconcile", pnl_ok, "Recompute actual contract-money P&L and reconcile accounting")]:
         add(key, title, invariant, {"trades": len(trades)}, procedure, passed(ok) if trades else "not-evaluable", "Cost rates are assumptions; accounting reconciliation does not establish causal attribution", "critical" if key in ("SOURCE","DELIVERY") else "high")
     liquid = [r for r in analysis.get("series", []) if r.get("candidate")]
-    add("LIQUIDITY", "Weak liquidity", "Candidate sessions satisfy declared volume/OI screens", {"candidates": len(liquid)}, "Inspect candidate liquidity flags and previous-session participation sizing", passed(all(r.get("liquid") for r in liquid)) if liquid else "not-evaluable", "Daily volume and OI cannot prove concurrent executable liquidity")
+    sizing_evidence = []
+    sizing_ok = True
+    participation = float(config.get('max_participation', .01))
+    for trade in trades:
+        for leg in ('a', 'b'):
+            rows = data.loc[(data.symbol == trade[f'symbol_{leg}']) & (data.expiry == trade[f'expiry_{leg}'])
+                            & (data.date == trade['signal_date'])]
+            volume = rows.iloc[0].get('volume') if len(rows) == 1 else None
+            oi = rows.iloc[0].get('open_interest') if len(rows) == 1 else None
+            available = (volume is not None and oi is not None and pd.notna(volume) and pd.notna(oi)
+                         and math.isfinite(float(volume)) and math.isfinite(float(oi)))
+            limit = min(int(config.get('max_lots', 100)), max(0, int(float(volume) * participation))) if available else 0
+            ok = (available and float(volume) >= float(config.get('min_volume', 10))
+                  and float(oi) >= float(config.get('min_oi', 10)) and abs(trade[f'lots_{leg}']) <= limit)
+            sizing_ok = sizing_ok and ok
+            sizing_evidence.append({'signal_date': trade['signal_date'], 'leg': leg,
+                                    'lots': trade[f'lots_{leg}'], 'signal_volume': volume,
+                                    'signal_open_interest': oi, 'maximum_lots': limit, 'within_limit': bool(ok)})
+    add("LIQUIDITY", "Weak liquidity", "Candidate screens and every fill's signal-session participation limit hold",
+        {"candidates": len(liquid), 'participation_fraction': participation, 'trade_legs': sizing_evidence},
+        "Rejoin each trade to exact signal-date source rows; independently compare lots with volume participation, OI and max-lot limits",
+        passed(all(r.get("liquid") for r in liquid) and sizing_ok) if liquid or trades else "not-evaluable",
+        "Signal-session volume is a sizing assumption, not available order-book depth or proof of next-session concurrent execution")
     add("SNOOPING", "Selective research reporting", "All investigation requests retained", {"prior_experiments": prior_experiments}, "Count prior requests in local hypothesis ledger", "pass" if prior_experiments is not None else "not-evaluable", "External/unrecorded experiments cannot be excluded; this checks local recording only")
     holdout = replay_result.get("holdout", {})
     frozen = holdout.get("start") and holdout.get("training_end") and holdout["training_end"] < holdout["start"]

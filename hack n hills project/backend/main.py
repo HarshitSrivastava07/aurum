@@ -2,13 +2,16 @@
 import logging
 import os
 import time
+from datetime import date
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
 from uuid import UUID
 from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
-from .models import ResearchConfig
+from fastapi.concurrency import run_in_threadpool
+from pydantic import BaseModel, ConfigDict, Field
+from .models import ResearchConfig, Symbol
 from .services.storage import Storage
 from .services.ledger import Ledger
 from .services.analytics import analyze_pair, clean_json, curve_analysis, compare_all_pairs
@@ -19,16 +22,28 @@ from .services.scenarios import ghost_market, survival_map
 from .services.red_team import audit
 from .services.demo import create_demo
 from .services.orchestration import investigate, reproduce
+from .services.jobs import InvestigationJobs, JobConflict
+from .services.education import compare_hypothetical_quotes
 
 logger = logging.getLogger("aurum.api")
 Mode = Literal["real", "synthetic"]
 
 
 def create_app(data_dir=None, evidence_dir=None):
-    app = FastAPI(title="AURUM X", version="0.1.0", description="Local commodity research. No brokerage execution.")
     storage = Storage(Path(data_dir or os.getenv("AURUM_DATA_DIR", "data")))
     ledger = Ledger(Path(evidence_dir or os.getenv("AURUM_EVIDENCE_DIR", "evidence")))
+    jobs = InvestigationJobs(storage, ledger)
+
+    @asynccontextmanager
+    async def lifespan(app):
+        try:
+            yield
+        finally:
+            await run_in_threadpool(jobs.shutdown)
+
+    app = FastAPI(title="AURUM X", version="0.1.0", description="Local commodity research. No brokerage execution.", lifespan=lifespan)
     app.state.storage, app.state.ledger = storage, ledger
+    app.state.jobs = jobs
 
     @app.middleware("http")
     async def request_boundary(request: Request, call_next):
@@ -74,19 +89,31 @@ def create_app(data_dir=None, evidence_dir=None):
         frame = storage.load(mode,start,end,[symbol] if symbol else None)
         return {"rows": clean_json(frame.head(limit).to_dict("records")), "total_rows": len(frame), "truncated": len(frame)>limit}
 
+    @app.get("/api/sessions")
+    def sessions(mode: Mode="real", start: date | None=None, end: date | None=None, symbol: Symbol | None=None):
+        if start and end and start > end:
+            raise ValueError("Start must precede end.")
+        dates = storage.sessions(mode, start, end, [symbol] if symbol else None)
+        return {"sessions": dates, "total_sessions": len(dates)}
+
     @app.post("/api/import")
     async def import_files(files: list[UploadFile]=File(...), requested_date: str | None=Form(None), date_order: Literal["mdy","dmy"]=Form("mdy")):
-        if len(files)>20:
-            raise HTTPException(413,"At most20 files per batch")
         reports=[]
         total=0
-        for file in files:
-            content=await file.read(25*1024*1024+1)
-            total+=len(content)
-            if total>100*1024*1024:
-                raise HTTPException(413,"Batch exceeds100MiB")
-            reports.append(storage.import_bytes(file.filename or "upload",content,requested_date or None,date_order,"real"))
-            await file.close()
+        try:
+            if len(files)>20:
+                raise HTTPException(413,"At most 20 files per batch")
+            for file in files:
+                content=await file.read(25*1024*1024+1)
+                total+=len(content)
+                if total>100*1024*1024:
+                    raise HTTPException(413,"Batch exceeds 100 MiB")
+                report = await run_in_threadpool(storage.import_bytes, file.filename or "upload", content,
+                                                requested_date or None, date_order, "real")
+                reports.append(report)
+        finally:
+            for file in files:
+                await file.close()
         return {"reports":reports,"rows_imported":sum(r["rows_imported"] for r in reports)}
 
     class DemoConfig(BaseModel):
@@ -112,6 +139,15 @@ def create_app(data_dir=None, evidence_dir=None):
     @app.post('/api/validate-config')
     def validate_config(model: ResearchConfig):
         return model.as_dict()
+
+    class EducationQuotes(BaseModel):
+        model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+        goldm_quote: float = Field(100000, gt=0, le=1e12)
+        goldten_quote: float = Field(101000, gt=0, le=1e12)
+
+    @app.post("/api/education/compare")
+    def education_compare(model: EducationQuotes):
+        return compare_hypothetical_quotes(model.goldm_quote, model.goldten_quote)
 
     @app.post("/api/scan")
     def scan(model: ResearchConfig):
@@ -146,6 +182,25 @@ def create_app(data_dir=None, evidence_dir=None):
     @app.post("/api/investigations")
     def investigation(model: ResearchConfig):
         return investigate(storage,ledger,model.as_dict())
+
+    @app.post("/api/investigation-jobs", status_code=202)
+    def start_investigation_job(model: ResearchConfig):
+        try:
+            return jobs.submit(model.as_dict())
+        except JobConflict as exc:
+            raise HTTPException(409, str(exc)) from exc
+
+    @app.get("/api/investigation-jobs/{key}")
+    def investigation_job(key: UUID):
+        return jobs.get(str(key))
+
+    @app.post("/api/investigation-jobs/{key}/cancel")
+    def cancel_investigation_job(key: UUID):
+        try:
+            job = jobs.cancel(str(key))
+            return JSONResponse(job, status_code=202 if job["status"] == "cancelling" else 200)
+        except JobConflict as exc:
+            raise HTTPException(409, str(exc)) from exc
 
     @app.get("/api/investigations")
     def history():

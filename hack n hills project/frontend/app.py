@@ -8,6 +8,7 @@ from __future__ import annotations
 import html
 import json
 import os
+import time
 from datetime import date, timedelta
 from typing import Any
 
@@ -17,6 +18,14 @@ import plotly.graph_objects as go
 import requests
 import streamlit as st
 
+from frontend.presets import render_presets
+from frontend.workspace import (AUTOMATIC_EXPIRY, apply_pending_preset, clear_results,
+                                observe_dataset, sync_connection, default_config,
+                                remember_config, restore_research_inputs)
+from frontend.guided import welcome, wizard, learning
+from frontend.explanations import TERMS, provenance
+from frontend.charts import measure_groups
+
 
 PAGES = [
     "Command Center", "Relative Value Explorer", "Futures Curve Laboratory",
@@ -24,11 +33,15 @@ PAGES = [
     "Time-Locked Replay", "Profit Survival Map", "Anomaly DNA",
     "Contract Genome", "Evidence Center", "Data Management", "Settings",
 ]
+GUIDED_PAGES = ["Welcome", "Guided Investigation", "Learn gold futures", "Evidence Center", "Data Management", "Settings"]
 PRODUCTS = ["GOLDM", "GOLDTEN", "GOLDGUINEA", "GOLDPETAL"]
 GOLD = "#C9A864"
 PALETTE = [GOLD, "#8BB9C6", "#B695C5", "#8AAF99", "#D0807C"]
 SYNTHETIC_LABEL = "SYNTHETIC DEMONSTRATION — NOT ACTUAL MCX PERFORMANCE"
 DESCRIPTIONS = {
+    "Guided Investigation": "Choose a question, compare actual observed contracts and follow the evidence step by step.",
+    "Learn gold futures": "Learn the essential terms and explore a clearly hypothetical purity comparison.",
+    "Welcome": "A guided laboratory for investigating gold futures price differences.",
     "Command Center": "A clear view of the evidence. Every conclusion begins with the data you actually have.",
     "Relative Value Explorer": "Compare quotation, purity and maturity effects across exact gold futures contracts.",
     "Futures Curve Laboratory": "Inspect listed maturities, empirical carry and the limits of curve-based explanations.",
@@ -49,10 +62,14 @@ class APIError(RuntimeError):
     """An actionable, safe error presented to the local application user."""
 
 
+def api_base() -> str:
+    return st.session_state.get("preferences", {}).get("api_url", os.getenv("AURUM_API_URL", "http://127.0.0.1:8000")).strip().rstrip("/")
+
+
 def api(method: str, path: str, *, params: dict | None = None,
         body: dict | None = None, files: Any = None, data: dict | None = None) -> Any:
     preferences = st.session_state.get("preferences", {})
-    base = preferences.get("api_url", os.getenv("AURUM_API_URL", "http://127.0.0.1:8000")).rstrip("/")
+    base = api_base()
     timeout = int(preferences.get("request_timeout", 120))
     try:
         response = requests.request(method, base + path, params=params, json=body,
@@ -82,6 +99,34 @@ def safe_get(path: str, params: dict | None = None, quiet: bool = False) -> Any:
         if not quiet:
             st.error(str(exc))
         return None
+
+
+def dataset_metadata(mode: str) -> tuple[Any, Any]:
+    """Reuse metadata during control changes; refresh on demand or after 30 seconds."""
+    cache = st.session_state.setdefault("metadata_cache", {})
+    key = (api_base(), mode)
+    saved = cache.get(key)
+    if saved and time.monotonic() - saved[0] < 30:
+        return saved[1], saved[2]
+    summary = safe_get("/api/summary", {"mode": mode}, quiet=True)
+    contracts = safe_get("/api/contracts", {"mode": mode}, quiet=True) if summary is not None else None
+    if summary is not None and contracts is not None:
+        cache[key] = (time.monotonic(), summary, contracts)
+    return summary, contracts
+
+
+def navigate(page: str, mode: str | None = None) -> None:
+    st.session_state["page"] = page
+    if page not in GUIDED_PAGES:
+        st.session_state["experience"] = "Research Mode"
+    elif page in ("Welcome", "Guided Investigation", "Learn gold futures"):
+        st.session_state["experience"] = "Guided Mode"
+    if mode:
+        st.session_state["mode_label"] = "Synthetic demonstration" if mode == "synthetic" else "Real MCX history"
+
+
+def change_experience() -> None:
+    st.session_state["page"] = "Welcome" if st.session_state["experience"] == "Guided Mode" else "Command Center"
 
 
 def records(payload: Any, *keys: str) -> list[dict]:
@@ -136,7 +181,10 @@ def show_table(rows: list[dict], *, key: str, download: bool = False) -> None:
             frame[col] = frame[col].map(lambda value: json.dumps(value, default=str) if isinstance(value, (dict, list)) else value)
     st.dataframe(frame, width="stretch", hide_index=True)
     if download:
-        st.download_button("Export displayed records · CSV", frame.to_csv(index=False),
+        export_frame = frame.copy()
+        mode = "synthetic" if st.session_state.get("mode_label") == "Synthetic demonstration" else "real"
+        export_frame["data_provenance"] = export_frame["mode"].map(provenance) if "mode" in export_frame else provenance(mode)
+        st.download_button("Export displayed records · CSV", export_frame.to_csv(index=False),
                            file_name=f"aurum-x-{key}.csv", mime="text/csv", key=f"csv_{key}")
 
 
@@ -176,6 +224,8 @@ def show_result(result: Any, key: str, *, chart_kind: str = "line") -> None:
     result_rows = records(result, "series", "equity", "history", "timeline", "points", "curve", "curves", "grid", "cells", "scenarios", "attacks", "checks", "analogs", "trades", "candidates", "results")
     if result_rows:
         frame = pd.DataFrame(result_rows)
+        chart_mode = field(result, "mode", default="synthetic" if st.session_state.get("mode_label") == "Synthetic demonstration" else "real")
+        st.caption(f"Chart and table source: {provenance(chart_mode)}. Values come from the backend calculation; inspect its assumptions below.")
         numeric = [col for col in frame.select_dtypes(include="number").columns if col not in ("id", "seed")]
         temporal = next((col for col in ("date", "Date", "session", "trade_date", "expiry", "expiry_date", "days_to_expiry", "dte", "cutoff") if col in frame.columns), None)
         sensitivity_axis = next((name for name in ("execution_delay", "slippage_bps") if name in frame.columns), None)
@@ -191,11 +241,17 @@ def show_result(result: Any, key: str, *, chart_kind: str = "line") -> None:
                 st.plotly_chart(style_chart(fig, "Modeled net P&L sensitivity"), width="stretch", key=f"plot_{key}")
         elif temporal and numeric:
             preferred = [col for col in ("normalized_a", "normalized_b", "residual", "z_score", "zscore", "normalized_price", "fine_price", "close", "Close", "net_pnl", "equity") if col in numeric]
-            choices = preferred or numeric[:4]
-            chosen = st.multiselect("Chart measures", numeric, default=choices[:2], key=f"measures_{key}")
+            groups = measure_groups(numeric)
+            default_measure = (preferred or numeric)[0]
+            default_group = next(unit for unit, names in groups.items() if default_measure in names)
+            unit = st.selectbox("Chart units", list(groups), index=list(groups).index(default_group), key=f"units_{key}")
+            choices = [name for name in preferred if name in groups[unit]] or groups[unit][:2]
+            chosen = st.multiselect("Chart measures", groups[unit], default=choices[:2], key=f"measures_{key}_{unit}")
             if chosen:
                 fig = px.line(frame, x=temporal, y=chosen, color_discrete_sequence=PALETTE)
-                st.plotly_chart(style_chart(fig), width="stretch", key=f"plot_{key}")
+                fig.update_yaxes(title=unit)
+                fig.update_xaxes(title=temporal.replace("_", " ").title())
+                st.plotly_chart(style_chart(fig, f"{', '.join(name.replace('_', ' ') for name in chosen)} · {frame[temporal].min()} to {frame[temporal].max()}"), width="stretch", key=f"plot_{key}")
         elif chart_kind == "histogram" and "modeled_outcomes" in frame.columns:
             chosen_name = st.selectbox("Stress scenario distribution", frame["name"].tolist(), key=f"scenario_{key}")
             sample = next(row["modeled_outcomes"] for row in result_rows if row["name"] == chosen_name)
@@ -263,9 +319,12 @@ def run_engine(page: str, endpoint: str, config: dict, button: str, chart_kind: 
                 result = api("POST", endpoint, body=config)
             st.session_state["result_" + page] = (result_key(page, config), result)
         except APIError as exc:
+            st.session_state.pop("result_" + page, None)
             st.error(str(exc))
     saved = st.session_state.get("result_" + page)
     if saved and saved[0] == result_key(page, config):
+        st.download_button("Download result · JSON", json.dumps({"provenance": provenance(config["mode"]), "config": config, "result": saved[1]}, indent=2, ensure_ascii=False, default=str),
+                           file_name=f"aurum-x-{page.lower().replace(' ', '-')}.json", mime="application/json", key=f"download_{page}")
         show_result(saved[1], page.replace(" ", "_"), chart_kind=chart_kind)
     elif saved:
         st.info("The assumptions have changed. Run the calculation again to produce a matching result.")
@@ -275,7 +334,7 @@ def run_engine(page: str, endpoint: str, config: dict, button: str, chart_kind: 
 
 def research_controls(summary: Any, contracts: Any, mode: str) -> dict:
     """Only collect inputs; eligibility and financial interpretation belong to API."""
-    with st.sidebar:
+    with st.sidebar.expander("Research scope", expanded=True):
         caption_title("Research scope")
         pair_a = st.selectbox("First contract", PRODUCTS, index=0, key="pair_a")
         pair_b = st.selectbox("Second contract", [p for p in PRODUCTS if p != pair_a], key="pair_b")
@@ -284,24 +343,32 @@ def research_controls(summary: Any, contracts: Any, mode: str) -> dict:
             return sorted({str(row.get("expiry") or row.get("expiry_date") or row.get("ExpiryDate"))[:10]
                            for row in contract_rows if str(row.get("symbol") or row.get("Symbol")) == symbol
                            and (row.get("expiry") or row.get("expiry_date") or row.get("ExpiryDate"))})
-        expiry_a = st.selectbox("First expiry", ["Automatic · one exact contract", *expiries(pair_a)], key=f"expiry_a_{mode}_{pair_a}",
+        def expiry_options(leg: str, symbol: str) -> list[str]:
+            available = expiries(symbol)
+            selected = st.session_state.get(f"expiry_{leg}_{mode}_{symbol}")
+            if selected and selected != AUTOMATIC_EXPIRY and selected not in available:
+                available.append(selected)
+                st.caption(f"Preset expiry {selected} is not present in this dataset.")
+            return [AUTOMATIC_EXPIRY, *sorted(available)]
+        expiry_a = st.selectbox("First expiry", expiry_options("a", pair_a), key=f"expiry_a_{mode}_{pair_a}",
                                 help="The backend selects one exact expiry when automatic; it does not stitch a near-month price history.")
-        expiry_b = st.selectbox("Second expiry", ["Automatic · one exact contract", *expiries(pair_b)], key=f"expiry_b_{mode}_{pair_b}")
+        expiry_b = st.selectbox("Second expiry", expiry_options("b", pair_b), key=f"expiry_b_{mode}_{pair_b}")
         today = date.today()
         minimum = as_date(field(summary, "date_min", "min_date", "start_date", "first_date", "start"), today - timedelta(days=365))
         maximum = as_date(field(summary, "date_max", "max_date", "end_date", "last_date", "end"), today)
-        start = st.date_input("From", value=minimum, max_value=today, key=f"start_{mode}")
-        end = st.date_input("Through", value=maximum, max_value=today, key=f"end_{mode}")
-        cutoff = st.date_input("Information cutoff", value=maximum, max_value=today, key=f"cutoff_{mode}",
+        earliest = date.min
+        start = st.date_input("From", value=minimum, min_value=earliest, max_value=today, key=f"start_{mode}")
+        end = st.date_input("Through", value=maximum, min_value=earliest, max_value=today, key=f"end_{mode}")
+        cutoff = st.date_input("Information cutoff", value=maximum, min_value=earliest, max_value=today, key=f"cutoff_{mode}",
                                help="The backend excludes observations after this date.")
         window = st.number_input("Historical window · sessions", 5, 252, value=20, step=1, key="window")
         baseline = st.selectbox("Decision policy", ["C", "B", "A"],format_func=lambda v:{'A':'A · Normalized spread','B':'B · Maturity aware','C':'C · Full investigation'}[v],key="baseline")
-        threshold = st.number_input("Anomaly threshold · Z", 0.5, 10.0, value=2.0, step=0.1, key="z_threshold")
+        threshold = st.number_input("Anomaly threshold · Z", 0.5, 10.0, value=2.0, step=0.1, key="z_threshold", help=TERMS["Z-score"])
         with st.expander("Execution assumptions"):
-            st.number_input("Capital limit · ₹", min_value=1000.0, max_value=1e10, value=10_000_000.0, step=100000.0, key="capital")
+            st.number_input("Capital limit · ₹", min_value=0.0, max_value=1e12, value=10_000_000.0, step=100000.0, key="capital")
             st.number_input("Maximum lots per leg", 1, 1000, value=100, key="max_lots")
-            st.number_input("Minimum session volume · lots", 1, 10000000, value=10, key="min_volume")
-            st.number_input("Minimum open interest · lots", 1, 10000000, value=10, key="min_oi")
+            st.number_input("Minimum session volume · lots", 1, 100000000, value=10, key="min_volume")
+            st.number_input("Minimum open interest · lots", 1, 100000000, value=10, key="min_oi")
             st.number_input("Holding period · sessions", 1, 60, value=5, key="holding_days")
             st.number_input("Entry delay · sessions", 1, 20, value=1, key="execution_delay", help="A signal cannot fill at that same session's close.")
             st.number_input("Additional exit delay · sessions", 0, 20, value=0, key="exit_delay")
@@ -321,13 +388,59 @@ def research_controls(summary: Any, contracts: Any, mode: str) -> dict:
     return config
 
 
+def getting_started(summary: Any, config: dict) -> None:
+    rows = field(summary, "row_count", "rows", "observations", "record_count", default=0)
+    if summary is None:
+        with st.container(border=True):
+            st.subheader("Connect your research workspace")
+            st.write("Start the research API, then refresh the connection to load your data.")
+            st.code("powershell -ExecutionPolicy Bypass -File scripts\\start.ps1", language="powershell")
+            st.button("Open connection settings", on_click=navigate, args=("Settings",), key="connect_settings")
+        return
+    if rows:
+        return
+    with st.container(border=True):
+        st.subheader("Start your first investigation")
+        st.write("Choose a dataset, compare two contracts, then preserve the evidence. This environment has no daily observations yet.")
+        left, right = st.columns(2)
+        with left:
+            st.markdown("**Explore the demonstration**")
+            st.caption("Use reproducible synthetic prices to learn the complete workflow.")
+            if config["mode"] == "real":
+                st.button("Explore synthetic demo", type="primary", on_click=navigate, args=("Command Center", "synthetic"), key="explore_demo", width="stretch")
+            elif st.button("Create demo dataset", type="primary", key="create_demo", width="stretch"):
+                try:
+                    with st.spinner("Preparing your demonstration dataset…"):
+                        api("POST", "/api/demo", body={"seed": int(config["seed"])})
+                    st.session_state["refresh_scope"] = "synthetic"
+                    st.rerun()
+                except APIError as exc:
+                    st.error(str(exc))
+        with right:
+            st.markdown("**Bring your own daily history**")
+            st.caption("Import daily contract exports and inspect source validation.")
+            st.button("Import market data", on_click=navigate, args=("Data Management", "real"), key="start_import", width="stretch")
+
+
 def command_center(summary: Any, contracts: Any, config: dict) -> None:
+    getting_started(summary, config)
     caption_title("Evidence before conviction")
     columns = st.columns(4)
     columns[0].metric("Imported observations", field(summary, "row_count", "rows", "observations", "record_count", default="—"))
     columns[1].metric("Exact contracts", field(summary, "contracts_count", "contract_count", "contracts", default="—") if not isinstance(field(summary, "contracts"), list) else len(summary["contracts"]))
     columns[2].metric("First observed session", field(summary, "date_min", "min_date", "start_date", "first_date", "start", default="—"))
     columns[3].metric("Last observed session", field(summary, "date_max", "max_date", "end_date", "last_date", "end", default="—"))
+    caption_title("Choose your next step")
+    quick_actions = [
+        ("⚖️ Compare contracts", "Inspect normalized spreads and exact expiries across products.", "Relative Value Explorer"),
+        ("🛡️ Challenge an idea", "Test your assumptions against adverse scenarios and costs.", "Ghost Market"),
+        ("📋 Review evidence", "Open, export and reproduce saved investigations.", "Evidence Center"),
+    ]
+    for column, (title, description, destination) in zip(st.columns(3), quick_actions):
+        with column, st.container(border=True):
+            st.markdown(f"**{title}**")
+            st.caption(description)
+            st.button("Open workspace", key=f"quick_{destination}", on_click=navigate, args=(destination,), width="stretch")
     left, right = st.columns([1.4, 1])
     with left:
         st.markdown("### The research pipeline")
@@ -340,11 +453,12 @@ def command_center(summary: Any, contracts: Any, config: dict) -> None:
         st.write(f"{config['start']} → {config['end']} · cutoff {config['cutoff']}")
         st.caption(f"Assumed costs {config['cost_bps']:g} bps · slippage {config['slippage_bps']:g} bps · seed {config['seed']}")
     st.divider()
-    run_engine("Command Center", "/api/investigations", config, "Run full investigation")
+    run_engine("Command Center", "/api/investigations", config, "▶ Run full investigation")
     caption_title("Available expiry-specific contracts")
     show_table(records(contracts, "contracts"), key="overview_contracts")
     with st.expander("Dataset coverage and quality"):
         st.json(summary or {"status": "API coverage unavailable"})
+
 
 
 def replay_page(config: dict) -> None:
@@ -352,13 +466,11 @@ def replay_page(config: dict) -> None:
     scope = result_key("replay_scope", config)
     if st.button("Load available replay sessions", type="primary"):
         try:
-            payload = api("GET", "/api/data", params={"mode": config["mode"], "start": config["start"], "end": min(config["end"], config["cutoff"]), "symbol": config["pair"][0], "limit": 10000})
-            dates = sorted({str(row.get("date") or row.get("Date"))[:10] for row in records(payload) if row.get("date") or row.get("Date")})
+            payload = api("GET", "/api/sessions", params={"mode": config["mode"], "start": config["start"], "end": min(config["end"], config["cutoff"]), "symbol": config["pair"][0]})
+            dates = payload["sessions"]
             st.session_state["replay_state"] = {"scope": scope, "sessions": dates, "index": -1, "result": None}
             if not dates:
                 st.info("No trading sessions are available in this scope.")
-            if field(payload, "truncated", default=False):
-                st.warning("The session query was truncated. Narrow the date window before replaying.")
         except APIError as exc:
             st.error(str(exc))
     state = st.session_state.get("replay_state")
@@ -475,17 +587,17 @@ def settings_page(config: dict) -> None:
     left, right = st.columns(2)
     with left:
         caption_title("Explicit cost assumptions")
-        st.number_input("All-in transaction cost · bps", min_value=0.0, max_value=500.0,
+        st.number_input("All-in transaction cost · bps", min_value=0.0, max_value=1000.0,
                         value=float(config["cost_bps"]), step=0.5, key="setting_cost_bps",
                         help="A research assumption, not a verified historical exchange fee schedule.")
-        st.number_input("Execution slippage · bps", min_value=0.0, max_value=500.0,
+        st.number_input("Execution slippage · bps", min_value=0.0, max_value=1000.0,
                         value=float(config["slippage_bps"]), step=0.5, key="setting_slippage_bps")
         st.number_input("Volatility stress multiplier", 0.1, 5.0, value=float(config["volatility_stress"]), step=0.1, key="setting_volatility_stress")
         st.caption("Holding duration, entry/exit delay, capital and liquidity controls are in the sidebar. Every calculation records its assumptions.")
     with right:
         caption_title("Reproducibility and resource limits")
-        st.number_input("Random seed", min_value=0, max_value=2147483647, value=int(config["seed"]), key="setting_seed")
-        st.number_input("Simulation paths", min_value=100, max_value=10000, value=int(config["simulations"]), step=100, key="setting_simulations")
+        st.number_input("Random seed", min_value=0, max_value=2**32-1, value=int(config["seed"]), key="setting_seed")
+        st.number_input("Simulation paths", min_value=50, max_value=10000, value=int(config["simulations"]), step=50, key="setting_simulations")
         st.number_input("API computation timeout · seconds", min_value=10, max_value=600, value=int(st.session_state.get("preferences", {}).get("request_timeout", 120)), step=10, key="setting_request_timeout")
     st.divider()
     caption_title("Local connection")
@@ -516,6 +628,15 @@ def settings_page(config: dict) -> None:
 
 def main() -> None:
     st.set_page_config(page_title="AURUM X · Commodity Intelligence", page_icon="◆", layout="wide", initial_sidebar_state="expanded")
+    sync_connection(api_base())
+    refresh_mode = st.session_state.pop("refresh_scope", None)
+    if refresh_mode:
+        st.session_state.pop("metadata_cache", None)
+        clear_results()
+        st.session_state.get("research_configs", {}).pop(refresh_mode, None)
+        for name in ("start", "end", "cutoff"):
+            st.session_state.pop(f"{name}_{refresh_mode}", None)
+    apply_pending_preset()
     st.markdown("""<style>
     .stApp {background: #0D1015;}
     [data-testid="stSidebar"] {background: #11161D; border-right: 1px solid #29303A;}
@@ -526,42 +647,97 @@ def main() -> None:
     .brand-sub {font-size: .67rem; letter-spacing: .15rem; color: #83909F; margin: .2rem 0 1.2rem;}
     .section-label {color: #C9A864; text-transform: uppercase; letter-spacing: .13rem; font-size: .69rem; margin: 1.25rem 0 .8rem;}
     .page-kicker {color: #C9A864; font-size: .72rem; text-transform: uppercase; letter-spacing: .16rem; margin-bottom: .8rem;}
-    [data-testid="stMetric"] {border: 1px solid #2B323D; border-radius: 8px; padding: 1rem; background: #131921;}
+    [data-testid="stMetric"] {border: 1px solid #2B323D; border-radius: 8px; padding: 1rem; background: #131921;
+        transition: border-color 0.2s ease;}
+    [data-testid="stMetric"]:hover {border-color: #C9A864;}
     [data-testid="stMetricValue"] {font-size: 1.55rem; color: #E6D4AF;}
     [data-testid="stMetricLabel"] {color: #91A0B2; font-size: .78rem;}
     div[data-testid="stAlert"] {border-radius: 7px;}
-    div.stButton > button {border-radius: 6px;}
+    div.stButton > button {border-radius: 6px; box-shadow: none; transition: all 0.15s ease;
+        font-weight: 500; letter-spacing: 0.01rem;}
+    div.stButton > button:hover {transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.3);}
+    div.stButton > button[kind="primary"] {background: linear-gradient(135deg, #C9A864 0%, #B89548 100%);
+        border: none; color: #0D1015; font-weight: 600;}
+    div.stDownloadButton > button {border-radius: 6px; box-shadow: none;}
+    [data-testid="stCaptionContainer"] {color: #A8B2BF;}
+    [data-testid="stExpander"] {border: 1px solid #242B35; border-radius: 8px; background: #111820;}
+    div[data-testid="stVerticalBlock"] > div[data-testid="stContainer"][data-testid-has-border="true"] {
+        border-color: #29303A; border-radius: 10px; background: #111820;
+        transition: border-color 0.2s ease;}
+    div[data-testid="stVerticalBlock"] > div[data-testid="stContainer"][data-testid-has-border="true"]:hover {
+        border-color: #3D4654;}
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after {animation: none !important; transition: none !important;} }
+    @media (max-width: 768px) {
+        .block-container {padding: 1.5rem 1rem;}
+        h1 {font-size: 1.8rem !important;}
+    }
     div[data-testid="stDataFrame"] {border: 1px solid #29313D; border-radius: 7px;}
     footer {visibility: hidden;}
     </style>""", unsafe_allow_html=True)
     with st.sidebar:
         st.markdown('<div class="brand">AURUM <span style="color:#8B96A5">X</span></div><div class="brand-sub">COMMODITY INTELLIGENCE / RESEARCH</div>', unsafe_allow_html=True)
-        mode_label = st.selectbox("Data environment", ["Real MCX history", "Synthetic demonstration"], key="mode_label")
+        experience = st.selectbox("Experience", ["Guided Mode", "Research Mode"], key="experience", on_change=change_experience,
+                                  help="Both experiences use the same backend calculations. Research Mode exposes every parameter.")
+        mode_label = st.selectbox("Data environment", ["Real MCX history", "Synthetic demonstration"], key="mode_label",
+                                 format_func=lambda label: "Imported history · unverified" if label == "Real MCX history" else label)
         mode = "synthetic" if mode_label == "Synthetic demonstration" else "real"
-        page = st.radio("Workspace", PAGES, key="page", label_visibility="collapsed")
+        options = GUIDED_PAGES if experience == "Guided Mode" else PAGES
+        if st.session_state.get("page") not in options:
+            st.session_state["page"] = options[0]
+        page = st.selectbox("Workspace", options, key="page")
+        if st.button("Refresh data and connection", key="refresh_data", width="stretch"):
+            st.session_state.pop("metadata_cache", None)
+            clear_results()
+        st.caption("Coverage refreshes on interaction after 30 seconds.")
         st.divider()
-    refresh_mode = st.session_state.pop("refresh_scope", None)
-    if refresh_mode:
-        for name in ("start", "end", "cutoff"):
-            st.session_state.pop(f"{name}_{refresh_mode}", None)
-    summary = safe_get("/api/summary", {"mode": mode}, quiet=True)
-    contracts = safe_get("/api/contracts", {"mode": mode}, quiet=True)
-    config = research_controls(summary, contracts, mode)
+    summary, contracts = dataset_metadata(mode)
+    observe_dataset(mode, summary, contracts)
+    with st.sidebar:
+        st.caption("API connected" if summary is not None else "API unavailable")
+    config = default_config(summary, mode)
+    if experience == "Research Mode":
+        restore_research_inputs(config)
+        config = research_controls(summary, contracts, mode)
+        remember_config(config)
     st.markdown('<div class="page-kicker">Autonomous, adversarially verified commodity intelligence</div>', unsafe_allow_html=True)
-    st.title(page)
-    st.caption(DESCRIPTIONS[page])
+    if page != "Welcome":
+        st.title(page)
+        st.caption(DESCRIPTIONS[page])
+    for notice in ("preset_notice", "dataset_notice"):
+        message = st.session_state.pop(notice, None)
+        if message:
+            st.info(message)
     if mode == "synthetic":
         st.warning(SYNTHETIC_LABEL)
     else:
-        st.caption("REAL MCX DATA MODE · Hypothetical research outputs · No brokerage execution")
+        st.caption("IMPORTED UNVERIFIED DATA · Source authenticity is not certified · No brokerage execution")
     if summary is None:
         st.warning("Dataset coverage is unavailable. Check that the research API is running; Settings contains the connection controls.")
+    if page == "Profit Survival Map":
+        cost_col, slip_col = st.columns(2)
+        config["cost_bps"] = cost_col.number_input("Base assumed costs · bps", 0.0, 1000.0, value=float(config["cost_bps"]), step=0.5, key="survival_cost")
+        config["slippage_bps"] = slip_col.number_input("Base assumed slippage · bps", 0.0, 1000.0, value=float(config["slippage_bps"]), step=0.5, key="survival_slippage")
+    if experience == "Research Mode":
+        render_presets(config, api)
+    scope_errors = []
     if config["start"] > config["end"]:
-        st.error("The start date must be on or before the end date.")
-        if page not in ("Settings", "Data Management"):
-            return
+        scope_errors.append("The start date must be on or before the end date.")
+    if config["start"] > config["cutoff"]:
+        scope_errors.append("The information cutoff must be on or after the start date.")
+    if config["capital"] <= 0:
+        scope_errors.append("The capital limit must be greater than zero.")
+    for error in scope_errors:
+        st.error(error)
+    if scope_errors and experience == "Research Mode" and page not in ("Settings", "Data Management", "Evidence Center", "Contract Genome"):
+        return
     st.divider()
-    if page == "Command Center":
+    if page == "Welcome":
+        welcome(summary, config, navigate)
+    elif page == "Guided Investigation":
+        config = wizard(summary, contracts, config, api, navigate, show_result)
+    elif page == "Learn gold futures":
+        learning(api)
+    elif page == "Command Center":
         command_center(summary, contracts, config)
     elif page == "Relative Value Explorer":
         st.caption("Analytical normalization does not remove delivery, location or execution basis risk. Inspect the backend decomposition before interpreting a residual.")
@@ -571,6 +747,7 @@ def main() -> None:
                 try:
                     st.session_state["pair_scan"] = (result_key(page,config),api("POST","/api/scan",body=config))
                 except APIError as exc:
+                    st.session_state.pop("pair_scan", None)
                     st.error(str(exc))
         scan = st.session_state.get("pair_scan")
         if scan and scan[0] == result_key(page,config):
@@ -592,9 +769,6 @@ def main() -> None:
     elif page == "Time-Locked Replay":
         replay_page(config)
     elif page == "Profit Survival Map":
-        cost_col, slip_col = st.columns(2)
-        config["cost_bps"] = cost_col.number_input("Base assumed costs · bps", 0.0, 500.0, value=float(config["cost_bps"]), step=0.5, key="survival_cost")
-        config["slippage_bps"] = slip_col.number_input("Base assumed slippage · bps", 0.0, 500.0, value=float(config["slippage_bps"]), step=0.5, key="survival_slippage")
         st.caption("The backend recalculates monetary results using actual contract multipliers and integer lots. Change execution, sizing and liquidity assumptions in the sidebar.")
         run_engine(page, "/api/survival", config, "Recalculate survival map", "heatmap")
     elif page == "Anomaly DNA":
@@ -612,6 +786,8 @@ def main() -> None:
         data_page(config)
     elif page == "Settings":
         settings_page(config)
+    if experience == "Guided Mode" and page != "Welcome":
+        render_presets(config, api)
     st.divider()
     st.caption("AURUM X / Research prototype · Evidence certificates record assumptions and limitations. No guaranteed returns or verified execution are implied.")
 

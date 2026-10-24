@@ -221,6 +221,8 @@ def replay(df: pd.DataFrame, config: dict) -> dict:
                 events.append({"date": day, "type": "suppressed", "reason": "Liquidity or lifecycle is ineligible"})
     curve = np.array([capital] + [e["equity"] for e in equity], dtype=float)
     drawdown = curve / np.maximum.accumulate(curve) - 1
+    for point, value in zip(equity, drawdown[1:]):
+        point['drawdown_fraction'] = float(-value)
     returns = np.diff(curve) / curve[:-1]
     gross, costs = sum(t["gross_pnl"] for t in trades), sum(t["costs"] for t in trades)
     holdout_trades = [t for t in trades if t["phase"] == "holdout"]
@@ -240,7 +242,9 @@ def replay(df: pd.DataFrame, config: dict) -> dict:
     spec = get_spec(metadata["pair"][0], first["date"], metadata["expiry_a"], mode=config.get("mode", "real"))
     if spec and _finite_positive(first.get("open_a")):
         lots = int(capital // (first["open_a"] * spec["trading_unit_g"] / spec["quotation_unit_g"]))
-        benchmark.update(net_pnl=leg_pnl(first["open_a"], last["price_a"], lots, spec) - trade_cost(first["open_a"], last["price_a"], lots, spec, costs_bps + slip_bps), lots=lots,
+        benchmark_fees = (fill_cost(first['date'], first['open_a'], lots, spec, config)
+                          + fill_cost(last['date'], last['price_a'], -lots, spec, config))
+        benchmark.update(net_pnl=leg_pnl(first["open_a"], last["price_a"], lots, spec) - benchmark_fees, costs=benchmark_fees, lots=lots,
                          status="descriptive_mark_only", entry_date=first["date"], mark_date=last["date"])
         spec_b = get_spec(metadata["pair"][1], first["date"], metadata["expiry_b"], mode=config.get("mode", "real"))
         if spec_b and _finite_positive(first.get("open_b")):
@@ -248,7 +252,9 @@ def replay(df: pd.DataFrame, config: dict) -> dict:
             if benchmark_hedge.get("lots_a") and benchmark_hedge.get("lots_b"):
                 qa, qb = int(benchmark_hedge["lots_a"]), -int(benchmark_hedge["lots_b"])
                 gp = leg_pnl(first["open_a"], last["price_a"], qa, spec) + leg_pnl(first["open_b"], last["price_b"], qb, spec_b)
-                fees = trade_cost(first["open_a"], last["price_a"], qa, spec, costs_bps + slip_bps) + trade_cost(first["open_b"], last["price_b"], qb, spec_b, costs_bps + slip_bps)
+                fees = sum(fill_cost(first['date'], first[f'open_{leg}'], quantity, definition, config)
+                           + fill_cost(last['date'], last[f'price_{leg}'], -quantity, definition, config)
+                           for leg, quantity, definition in [('a', qa, spec), ('b', qb, spec_b)])
                 naive_pair.update(net_pnl=gp - fees, gross_pnl=gp, costs=fees, lots_a=qa, lots_b=qb, status="descriptive_mark_only")
     warnings = metadata["warnings"] + ["Open fills are hypothetical, not proof of executable two-leg fills; no margin leverage is modeled.",
                "Attribution uses the mean of the two normalized legs as a gold proxy; relative-value contribution is an accounting residual, not causal alpha.",

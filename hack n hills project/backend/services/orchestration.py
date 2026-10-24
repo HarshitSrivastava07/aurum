@@ -16,6 +16,55 @@ from .ledger import canonical, digest
 from .demo import LABEL
 
 VERSION = "0.1.0"
+INVESTIGATION_STAGES = (
+    ("snapshot", "Freeze data and exact contracts"),
+    ("mirage", "Normalize and investigate relative value"),
+    ("curves", "Inspect historical futures curves"),
+    ("analogs", "Find prior historical analogs"),
+    ("replay", "Replay chronological execution"),
+    ("red_team", "Run adversarial checks"),
+    ("ghost", "Model adverse market scenarios"),
+    ("survival", "Evaluate cost and delay sensitivity"),
+    ("baseline_comparison", "Compare fixed research policies"),
+    ("certificate", "Preserve the evidence certificate"),
+)
+
+
+class InvestigationCancelled(RuntimeError):
+    """A cancellation request observed at a safe stage boundary."""
+
+
+def _check_cancel(cancel_requested):
+    if cancel_requested and cancel_requested():
+        raise InvestigationCancelled("Investigation cancelled before the next stage; no certificate was saved.")
+
+
+def _progress(callback, investigation, stage, status, message=""):
+    if callback:
+        callback({"investigation_id": investigation, "stage": stage, "status": status, "message": message})
+
+
+def _stage_outcome(name, output):
+    """Describe actual engine limitations without changing financial outputs."""
+    if name == "curves":
+        insufficient = [symbol for symbol, curve in output.items()
+                        if isinstance(curve, dict) and curve.get("classification") == "insufficient_curve"]
+        if insufficient:
+            return "warning", "Insufficient curve observations for " + ", ".join(insufficient) + "."
+        if any(isinstance(curve, dict) and curve.get("warnings") for curve in output.values()):
+            return "warning", "Curves computed with reported model and delivery-basis limitations."
+    if name == "red_team":
+        summary = output.get("summary", {})
+        failed, unknown = summary.get("fail", 0), summary.get("not-evaluable", 0)
+        if failed or unknown:
+            return "warning", f"{failed} checks failed; {unknown} checks could not be evaluated."
+    status = str(output.get("status", ""))
+    limitations = ("insufficient", "unavailable", "blocked", "no_feasible", "no_eligible")
+    if any(term in status for term in limitations):
+        return "warning", str(output.get("message") or status.replace("_", " "))
+    if output.get("warnings"):
+        return "warning", f"Calculation finished with {len(output['warnings'])} reported warnings."
+    return "completed", str(output.get("message") or status.replace("_", " ") or "Calculation finished.")
 
 
 def determine_verdict(outputs, has_data=True):
@@ -47,15 +96,24 @@ def code_hash():
     return digest({str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(root.rglob("*.py"))})
 
 
-def run_stages(frame, config, investigation=None, prior_experiments=0, ledger=None):
+def run_stages(frame, config, investigation=None, prior_experiments=0, ledger=None,
+               progress=None, cancel_requested=None):
     result = {}
     def stage(name, function):
+        _check_cancel(cancel_requested)
+        _progress(progress, investigation, name, "running")
         if ledger:
             ledger.append(investigation, "stage_started", {"stage": name})
-        output = StageResult(name=name, result=clean_json(function())).result
+        try:
+            output = StageResult(name=name, result=clean_json(function())).result
+        except Exception as exc:
+            _progress(progress, investigation, name, "failed", str(exc))
+            raise
         result[name] = output
         if ledger:
             ledger.append(investigation, "stage_completed", {"stage": name, "digest": digest(output), "status": output.get("status")})
+        state, message = _stage_outcome(name, output)
+        _progress(progress, investigation, name, state, message)
         return output
     analysis = stage("mirage", lambda: analyze_pair(frame, config))
     as_of = config.get("cutoff") or config.get("end") or (frame.date.max() if len(frame) else "2025-01-01")
@@ -77,14 +135,18 @@ def run_stages(frame, config, investigation=None, prior_experiments=0, ledger=No
     return result
 
 
-def investigate(storage, ledger, config):
+def investigate(storage, ledger, config, progress=None, cancel_requested=None):
     config = dict(config)
     key = str(uuid.uuid4())
-    prior = ledger.count_similar(config["mode"], config["pair"])
-    ledger.append(key, "request", config)
-    directory = ledger.directory(key)
-    directory.mkdir()
+    active_stage = None
     try:
+        _check_cancel(cancel_requested)
+        active_stage = "snapshot"
+        _progress(progress, key, active_stage, "running")
+        prior = ledger.count_similar(config["mode"], config["pair"])
+        ledger.append(key, "request", config)
+        directory = ledger.directory(key)
+        directory.mkdir()
         limit = min([x for x in [config.get("end"), config.get("cutoff")] if x], default=None)
         frame = storage.load(config["mode"], end=limit, symbols=config["pair"])
         if len(frame) > 100_000:
@@ -105,14 +167,29 @@ def investigate(storage, ledger, config):
         ledger.append(key, "preregistered", {"configuration": config, "prior_experiments": prior, "snapshot_hash": snapshot_hash,
                        "planned_tests": ["Mirage deviations", "prior analog outcomes", "21 adversarial invariants", "paired block bootstrap", "chronological exact-contract replay", "cost/delay sensitivity"],
                        "hypothesis": "The selected exact-contract residual remains unusual after metal-content and supported maturity adjustments, and survives modeled costs and stress."})
-        outputs = run_stages(frame, config, key, prior, ledger)
+        _progress(progress, key, active_stage, "completed" if len(frame) else "warning",
+                  f"Preserved {len(frame)} observations." if len(frame) else "No observations are available; evidence will remain insufficient.")
+        active_stage = None
+        outputs = run_stages(frame, config, key, prior, ledger, progress, cancel_requested)
+        _check_cancel(cancel_requested)
+        active_stage = "certificate"
+        # Job callbacks serialize this entry with cancellation: once saving begins,
+        # a new cancellation is refused until the persisted outcome is known.
+        _progress(progress, key, active_stage, "running")
         audit_summary = outputs["red_team"]["summary"]
         latest = outputs["mirage"].get("latest")
         has_candidate = bool(latest and latest.get("candidate"))
         holdout = outputs["replay"].get("holdout", {})
         verdict=determine_verdict(outputs,not frame.empty)
+        source_authenticity_verified = False
+        provenance = "SYNTHETIC TEST DATA" if config["mode"] == "synthetic" else "IMPORTED UNVERIFIED DATA"
+        if config["mode"] == "real" and not source_authenticity_verified and verdict == "SURVIVES MODELED TESTS":
+            verdict = "INSUFFICIENT EVIDENCE"
         sources = frame[["source_file", "source_hash"]].drop_duplicates().to_dict("records") if len(frame) else []
         certificate = {"id": key, "timestamp": datetime.now(timezone.utc).isoformat(), "historical_information_cutoff": config.get("cutoff"),
+            "provenance": provenance, "source_authenticity_verified": source_authenticity_verified,
+            "provenance_gate": {"status": "synthetic" if config["mode"] == "synthetic" else "unverified",
+                                "message": "Synthetic test data cannot establish market performance." if config["mode"] == "synthetic" else "Imported source authenticity has not been independently verified; a positive real-data conclusion is blocked."},
             "config": config, "mode_label": LABEL if config["mode"] == "synthetic" else "REAL MCX IMPORT MODE — provenance supplied by importer; source authenticity is not independently certified",
             "contract_names_and_expiries": {"pair": config["pair"], "expiry_a": config.get("expiry_a"), "expiry_b": config.get("expiry_b")},
             "sources": sources, "official_references": ["https://www.mcxindia.com/market-data/bhavcopy", "https://www.mcxindia.com/products/bullion/gold"],
@@ -134,9 +211,17 @@ def investigate(storage, ledger, config):
                 "No cryptographic tamper resistance is claimed for local artifacts."]}
         ledger.append(key, "conclusion", {"verdict": verdict, "result_hash": certificate["result_hash"], "execution_feasibility": certificate["execution_feasibility"]})
         certificate["ledger"] = ledger.events(key)
-        (directory / "certificate.json").write_text(canonical(certificate), encoding="utf-8")
+        pending_certificate = directory / "certificate.json.tmp"
+        pending_certificate.write_text(canonical(certificate), encoding="utf-8")
+        pending_certificate.replace(directory / "certificate.json")
+        _progress(progress, key, active_stage, "completed", f"Certificate saved: {verdict}.")
         return certificate
+    except InvestigationCancelled as exc:
+        ledger.append(key, "cancelled", {"reason": str(exc)})
+        raise
     except Exception as exc:
+        if active_stage:
+            _progress(progress, key, active_stage, "failed", str(exc))
         ledger.append(key, "failed", {"type": type(exc).__name__, "reason": str(exc)})
         raise
 

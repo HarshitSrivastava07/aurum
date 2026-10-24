@@ -14,7 +14,7 @@ from .costs import fill_cost
 
 REQUIRED_SCENARIOS = frozenset(['Base paired bootstrap','Increased transaction costs','Execution slippage',
     'Delayed entries','Delayed exits','Higher gold volatility','Correlated adverse movements',
-    'Residual spread expansion','Thin liquidity','Contract expiry restrictions','Combined stress'])
+    'Residual spread expansion','Thin liquidity','Contract expiry restrictions','Failed hedge execution','Combined stress'])
 
 
 def paired_block_bootstrap(returns: np.ndarray, simulations: int, horizon: int, block_length: int, seed: int) -> np.ndarray:
@@ -24,7 +24,9 @@ def paired_block_bootstrap(returns: np.ndarray, simulations: int, horizon: int, 
     if not 1 <= simulations <= 10000 or not 1 <= horizon <= 126:
         raise ValueError("Simulation size or horizon exceeds bounded resource limits")
     rng = np.random.default_rng(int(seed))
-    block = max(1, min(int(block_length), len(values)))
+    # Only the modeled horizon can be consumed. A longer block otherwise
+    # allocates simulations * history_length indexes before truncating them.
+    block = max(1, min(int(block_length), len(values), horizon))
     starts = rng.integers(0, len(values), size=(simulations, math.ceil(horizon / block)))
     indexes = ((starts[:, :, None] + np.arange(block)[None, None, :]) % len(values)).reshape(simulations, -1)[:, :horizon]
     return values[indexes]
@@ -49,7 +51,7 @@ def ghost_market(df: pd.DataFrame, config: dict, aligned=None) -> dict:
                 "warnings": meta["warnings"] + [f"Need at least {minimum} observed paired returns for block bootstrap"]}
     latest = frame.iloc[-1].to_dict()
     # Same row indexes for both legs preserve cross-leg and within-block temporal dependence.
-    returns = frame[["price_a", "price_b"]].pct_change(fill_method=None).dropna().to_numpy()
+    returns = frame[["price_a", "price_b"]].pct_change().dropna().to_numpy()
     simulations = min(10000, max(50, int(config.get("simulations", 500))))
     horizon = max(1, int(config.get("holding_days", 5)))
     entry_delay, exit_delay = max(1, int(config.get("execution_delay", 1))), max(0, int(config.get("exit_delay", 0)))
@@ -92,10 +94,15 @@ def ghost_market(df: pd.DataFrame, config: dict, aligned=None) -> dict:
         {"name": "Residual spread expansion", "adverse_residual": 2.0},
         {"name": "Thin liquidity", "slippage_multiplier": 5.0, "liquidity_fraction": 0.25},
         {"name": "Contract expiry restrictions", "check_expiry": True},
+        {"name": "Failed hedge execution", "failed_leg": "b", "unwind_after_sessions": 1,
+         "slippage_multiplier": 5.0, "adverse_common": 2.0, "check_expiry": True},
         {"name": "Combined stress", "cost_multiplier": 3.0, "slippage_multiplier": 5.0, "entry_extra": 2, "exit_extra": 2, "vol_multiplier": 2.0, "adverse_residual": 2.0, "adverse_common": 2.0, "liquidity_fraction": 0.25, "check_expiry": True},
     ]
     scenarios, base_net, base_turnover = [], None, None
     for experiment in classes:
+        scenario_lots = lots.copy()
+        if experiment.get('failed_leg') == 'b':
+            scenario_lots[1] = 0
         sampled = boot.copy()
         # Amplify the common gold factor; retain paired residual structure.
         common = sampled.mean(axis=2, keepdims=True)
@@ -104,33 +111,40 @@ def ghost_market(df: pd.DataFrame, config: dict, aligned=None) -> dict:
         sampled += residual_direction[None, None, :] * residual_vol * experiment.get("adverse_residual", 0) / np.sqrt(horizon)
         # A shared percentage return acts on signed MONEY notional. Fine grams
         # are appropriate for a shared absolute fine-gram price move instead.
-        common_side = -np.sign(float(np.sum(lots * multiplier * prices)))
+        common_side = -np.sign(float(np.sum(scenario_lots * multiplier * prices)))
         sampled += common_side * common_vol * experiment.get("adverse_common", 0) / np.sqrt(horizon)
         sampled = np.clip(sampled, -0.95, 1.0)
         paths = np.concatenate([np.broadcast_to(prices, (simulations, 1, 2)), prices[None, None, :] * np.cumprod(1 + sampled, axis=1)], axis=1)
         entry = min(path_horizon - 1, entry_delay + experiment.get("entry_extra", 0))
         exit_index = min(path_horizon, entry + horizon + exit_delay + experiment.get("exit_extra", 0))
+        if experiment.get('failed_leg'):
+            exit_index = min(path_horizon, entry + experiment['unwind_after_sessions'])
         entry_prices, exit_prices = paths[:, entry, :], paths[:, exit_index, :]
-        turnover = np.sum((entry_prices + exit_prices) * np.abs(lots) * multiplier, axis=1)
-        gross = np.sum((exit_prices - entry_prices) * lots * multiplier, axis=1)
+        turnover = np.sum((entry_prices + exit_prices) * np.abs(scenario_lots) * multiplier, axis=1)
+        gross = np.sum((exit_prices - entry_prices) * scenario_lots * multiplier, axis=1)
         net = gross - turnover * (costs * experiment.get("cost_multiplier", 1.0) + slip * experiment.get("slippage_multiplier", 1.0)) / 10_000
         expiry_ok = bool(latest["entry_eligible"])
         if experiment.get("check_expiry"):
             dates = [latest[f"lifecycle_{leg}"].get("tender_start") for leg in ("a", "b")]
             expiry_ok = expiry_ok and all(dates) and date.fromisoformat(latest["date"]) + timedelta(days=int(exit_index) * 2 + 2) < date.fromisoformat(min(dates))
-        participation = max(abs(lots[0]) / max(1, float(latest["volume_a"] or 0)), abs(lots[1]) / max(1, float(latest["volume_b"] or 0)))
+        participation = max(abs(scenario_lots[0]) / max(1, float(latest["volume_a"] or 0)), abs(scenario_lots[1]) / max(1, float(latest["volume_b"] or 0)))
         liquidity_ok = participation <= float(config.get("max_participation", 0.01)) * experiment.get("liquidity_fraction", 1.0)
         scenarios.append({"name": experiment["name"], **_summary(net), "parameters": experiment, "entry_delay": entry, "exit_horizon": exit_index,
+                          "position": {"lots_a": int(scenario_lots[0]), "lots_b": int(scenario_lots[1]),
+                                       "residual_fine_g": float(np.sum(scenario_lots * units))},
+                          "execution_assumption": ("First leg fills, second leg never fills; first leg is unwound one modeled session later with adverse gold move and increased slippage. No failure probability is estimated."
+                                                   if experiment.get('failed_leg') else "Both legs follow the declared counterfactual fill delays; historical execution is unverified."),
                           "lifecycle_eligible": bool(expiry_ok), "liquidity_eligible": bool(liquidity_ok),
                           "status": "modeled_only" if expiry_ok and liquidity_ok else "financial_scenario_execution_blocked",
                           "worst_scenario_index": int(np.argmin(net)), "modeled_outcomes": net[:min(100, simulations)].tolist()})
         if base_net is None:
             base_net, base_turnover = net, turnover
     sensitivity = [{"cost_bps": c, **_summary(base_net - base_turnover * (c - costs) / 10_000)} for c in sorted(set([0.0, costs, costs * 2, costs * 4 + 1]))]
+    correlation = float(np.corrcoef(returns.T)[0, 1]) if np.all(np.std(returns, axis=0) > 0) else None
     return clean_json({**meta, "status": "simulated", "as_of": latest["date"], "sample_size": len(returns), "simulations": simulations,
                        "seed": seed, "block_length": block, "horizon": horizon, "method": "circular moving-block bootstrap with jointly sampled paired returns",
                        "position": {"lots_a": int(lots[0]), "lots_b": int(lots[1]), "gross_notional": gross_notional, "residual_fine_g": float(np.sum(lots * units))},
-                       "historical_return_correlation": float(np.corrcoef(returns.T)[0, 1]), "scenarios": scenarios, "cost_sensitivity": sensitivity,
+                       "historical_return_correlation": correlation, "scenarios": scenarios, "cost_sensitivity": sensitivity,
                        "fragility": "fragile" if any(s["median_net_pnl"] <= 0 for s in scenarios) else "survives_modeled_medians",
                        "warnings": meta["warnings"] + ["Positive scenario rate is a simulated frequency, not a calibrated real-world probability of profit.",
                            "Close-to-close bootstrap prices are counterfactual research paths, not observed executable fills; position is diagnostic even without a defensible signal.",
@@ -156,7 +170,9 @@ def survival_map(df: pd.DataFrame, config: dict) -> dict:
     # One-dimensional slices expose other independent assumptions without an expensive Cartesian product.
     slices = []
     variants = [("exit_delay", int(config.get("exit_delay", 0)) + 2), ("slippage_bps", float(config.get("slippage_bps", 2)) * 3 + 1),
-                ("min_volume", float(config.get("min_volume", 10)) * 5), ("holding_days", max(1, int(config.get("holding_days", 5)) * 2))]
+                ("min_volume", float(config.get("min_volume", 10)) * 5), ("holding_days", max(1, int(config.get("holding_days", 5)) * 2)),
+                ("capital", float(config.get("capital", 10000000)) * .5),
+                ("max_lots", max(1, int(config.get("max_lots", 100)) // 2))]
     for parameter, value in variants:
         run = replay(df, {**config, parameter: value})
         slices.append({"parameter": parameter, "value": value, **run["metrics"]})
@@ -173,11 +189,12 @@ def survival_map(df: pd.DataFrame, config: dict) -> dict:
     break_even_total=zero['metrics']['gross_pnl']/turnover*10000 if turnover>0 and not zero.get('open_position') else None
     return {"mode": config.get("mode", "real"), "status": "evaluated" if any(c["trades"] for c in cells) else "no_eligible_trades",
             "cells": cells, "axes": {"cost_bps": costs, "execution_delay": delays}, "slices": slices,
-            "volatility_and_liquidity_stresses": [{k: v for k, v in s.items() if k != "modeled_outcomes"} for s in ghost.get("scenarios", []) if s["name"] in ("Higher gold volatility", "Thin liquidity", "Contract expiry restrictions", "Combined stress")],
+            "volatility_and_liquidity_stresses": [{k: v for k, v in s.items() if k != "modeled_outcomes"} for s in ghost.get("scenarios", []) if s["name"] in ("Higher gold volatility", "Thin liquidity", "Contract expiry restrictions", "Failed hedge execution", "Combined stress")],
             "conditional_break_even_total_bps":break_even_total,
             "conditional_break_even_cost_bps":break_even_total-float(config.get('slippage_bps',2)) if break_even_total is not None else None,
             "conditional_break_even_slippage_bps":break_even_total-float(config.get('cost_bps',5)) if break_even_total is not None else None,
             "boundaries": break_even, "warnings": ["Every historical cell recomputes actual lot quantities, chronological signals and subsequent Open proxies.",
+                "Capital and maximum-lot slices rerun integer hedge sizing; different quantities can change residual gold exposure and eligibility.",
                 "Grid cells replace any detailed fee schedule with the displayed all-in bps assumption; slices retain the configured schedule. Break-even rates condition on the zero-cost trades and may be negative.",
                 "Sensitivity cells reuse the same dataset; selecting the best cell is data snooping, not fresh out-of-sample validation.",
                 "Volatility stress is counterfactual bootstrap output, separate from historical replay. Zero trades are not evidence that an opportunity survives."]}

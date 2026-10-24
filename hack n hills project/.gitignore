@@ -12,3 +12,4 @@ data/imports*.json*
 evidence/
 logs/
 *.log
+.pytest_tmp/

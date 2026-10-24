@@ -163,7 +163,7 @@ def aligned_pair(df: pd.DataFrame, config: dict) -> tuple[pd.DataFrame, dict]:
     frame["mad"] = history.rolling(window, min_periods=window).apply(lambda x: float(np.median(np.abs(x - np.median(x)))), raw=True)
     frame["zscore"] = (frame.residual - frame.reference) / frame["std"].replace(0, np.nan)
     frame["robust_zscore"] = (frame.residual - frame["median"]) / (1.4826 * frame["mad"].replace(0, np.nan))
-    frame["gold_factor_return"] = ((frame.normalized_a.pct_change(fill_method=None) + frame.normalized_b.pct_change(fill_method=None)) / 2)
+    frame["gold_factor_return"] = ((frame.normalized_a.pct_change() + frame.normalized_b.pct_change()) / 2)
     frame["factor_price"] = (frame.normalized_a + frame.normalized_b) / 2
     frame["liquid"] = (frame[["volume_a", "volume_b"]].fillna(-1) >= float(config.get("min_volume", 10))).all(axis=1) & (frame[["oi_a", "oi_b"]].fillna(-1) >= float(config.get("min_oi", 10))).all(axis=1)
     frame["candidate"] = (frame.zscore.abs() >= float(config.get("z_threshold", 2))) & frame.liquid & frame.entry_eligible
