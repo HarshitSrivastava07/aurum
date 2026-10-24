@@ -1,6 +1,6 @@
 # AURUM X
 
-**Autonomous, adversarially verified commodity intelligence.** A local FastAPI + Streamlit research prototype for MCX gold futures, built for Hack in Hills 2026, Track 03.
+**Autonomous, adversarially verified commodity intelligence.** A local FastAPI + Streamlit research prototype for MCX gold futures..
 
 The application has working data ingestion, a versioned Contract Genome, relative-value and curve analytics, joint scenario simulation, adversarial checks, chronological replay, sensitivity analysis, historical analog search, an experiment ledger, and reproducible JSON evidence certificates. It uses no paid API or LLM and has no brokerage/order execution.
 
