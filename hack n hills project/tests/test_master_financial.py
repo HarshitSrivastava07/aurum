@@ -79,6 +79,17 @@ def test_liquidity_audit_detects_trade_exceeding_signal_session_participation():
     assert check["status"] == "fail"
 
 
+def test_missing_benchmark_fee_coverage_is_unavailable_without_fabricated_net_value():
+    result = replay(market_fixture(45), {**CONFIG, 'min_volume': 1000000, 'cost_schedule': [
+        {'schedule_id': 'late_only', 'effective_from': '2025-02-01', 'brokerage_per_lot': 29},
+    ]})
+    assert not result['trades']
+    for benchmark in result['baselines'][1:]:
+        assert benchmark['status'] == 'unavailable'
+        assert benchmark['net_pnl'] is None
+        assert 'fees unavailable' in benchmark['reason']
+
+
 def test_missing_leg_sessions_are_not_filled_or_fabricated():
     frame = market_fixture(45)
     missing_date = sorted(frame.date.unique())[22]

@@ -78,7 +78,6 @@ def replay(df: pd.DataFrame, config: dict) -> dict:
     if holdout_index < window + 2:
         holdout_index = n  # No independent final evaluation without a training window.
     holdout_date = records[holdout_index]["date"] if holdout_index < n else None
-    costs_bps, slip_bps = float(config.get("cost_bps", 5)), float(config.get("slippage_bps", 2))
     base_threshold = float(config.get("z_threshold", 2))
     position, pending = None, None
     trades, equity, events, folds = [], [], [], []
@@ -242,20 +241,28 @@ def replay(df: pd.DataFrame, config: dict) -> dict:
     spec = get_spec(metadata["pair"][0], first["date"], metadata["expiry_a"], mode=config.get("mode", "real"))
     if spec and _finite_positive(first.get("open_a")):
         lots = int(capital // (first["open_a"] * spec["trading_unit_g"] / spec["quotation_unit_g"]))
-        benchmark_fees = (fill_cost(first['date'], first['open_a'], lots, spec, config)
-                          + fill_cost(last['date'], last['price_a'], -lots, spec, config))
-        benchmark.update(net_pnl=leg_pnl(first["open_a"], last["price_a"], lots, spec) - benchmark_fees, costs=benchmark_fees, lots=lots,
-                         status="descriptive_mark_only", entry_date=first["date"], mark_date=last["date"])
+        try:
+            benchmark_fees = (fill_cost(first['date'], first['open_a'], lots, spec, config)
+                              + fill_cost(last['date'], last['price_a'], -lots, spec, config))
+        except ValueError as exc:
+            benchmark['reason'] = f"Benchmark fees unavailable: {exc}"
+        else:
+            benchmark.update(net_pnl=leg_pnl(first["open_a"], last["price_a"], lots, spec) - benchmark_fees, costs=benchmark_fees, lots=lots,
+                             status="descriptive_mark_only", entry_date=first["date"], mark_date=last["date"])
         spec_b = get_spec(metadata["pair"][1], first["date"], metadata["expiry_b"], mode=config.get("mode", "real"))
         if spec_b and _finite_positive(first.get("open_b")):
             benchmark_hedge = integer_hedge(spec, spec_b, first["open_a"], first["open_b"], capital, max_lots=int(config.get("max_lots", 100)))
             if benchmark_hedge.get("lots_a") and benchmark_hedge.get("lots_b"):
                 qa, qb = int(benchmark_hedge["lots_a"]), -int(benchmark_hedge["lots_b"])
                 gp = leg_pnl(first["open_a"], last["price_a"], qa, spec) + leg_pnl(first["open_b"], last["price_b"], qb, spec_b)
-                fees = sum(fill_cost(first['date'], first[f'open_{leg}'], quantity, definition, config)
-                           + fill_cost(last['date'], last[f'price_{leg}'], -quantity, definition, config)
-                           for leg, quantity, definition in [('a', qa, spec), ('b', qb, spec_b)])
-                naive_pair.update(net_pnl=gp - fees, gross_pnl=gp, costs=fees, lots_a=qa, lots_b=qb, status="descriptive_mark_only")
+                try:
+                    fees = sum(fill_cost(first['date'], first[f'open_{leg}'], quantity, definition, config)
+                               + fill_cost(last['date'], last[f'price_{leg}'], -quantity, definition, config)
+                               for leg, quantity, definition in [('a', qa, spec), ('b', qb, spec_b)])
+                except ValueError as exc:
+                    naive_pair['reason'] = f"Benchmark fees unavailable: {exc}"
+                else:
+                    naive_pair.update(net_pnl=gp - fees, gross_pnl=gp, costs=fees, lots_a=qa, lots_b=qb, status="descriptive_mark_only")
     warnings = metadata["warnings"] + ["Open fills are hypothetical, not proof of executable two-leg fills; no margin leverage is modeled.",
                "Attribution uses the mean of the two normalized legs as a gold proxy; relative-value contribution is an accounting residual, not causal alpha.",
                "Holdout parameters are frozen before its first observation; rerunning altered research configurations is a new experiment, not independent validation.",

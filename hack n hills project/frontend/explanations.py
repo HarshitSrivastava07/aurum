@@ -4,6 +4,7 @@ from __future__ import annotations
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from frontend.theme import PALETTE, style_chart
 
 
 TERMS = {
@@ -78,17 +79,8 @@ def render_summary(certificate: dict, navigate) -> None:
     # Layer 1 — Verdict with visual emphasis
     verdict = info["verdict"]
     st.subheader(f"Verdict: {verdict}")
-    verdict_colors = {
-        "SURVIVES MODELED TESTS": ("#1B5E20", "#4CAF50", "✓"),
-        "REJECTED": ("#B71C1C", "#EF5350", "✗"),
-        "INSUFFICIENT EVIDENCE": ("#E65100", "#FF9800", "?"),
-    }
-    bg, fg, icon = verdict_colors.get(verdict, ("#424242", "#9E9E9E", "·"))
-    st.markdown(f"""<div style="padding:1rem 1.5rem; border-radius:10px; border:1px solid {fg};
-        background:{bg}22; margin-bottom:1rem;">
-        <div style="font-size:1.4rem; font-weight:700; color:{fg};">{icon} {verdict}</div>
-        <div style="color:#CED3DB; margin-top:0.4rem;">{info['conclusion']}</div>
-    </div>""", unsafe_allow_html=True)
+    with st.container(border=True):
+        st.write(info["conclusion"])
 
     st.write(info["discovery"])
     st.caption(f"{' / '.join(config.get('pair', []))} · {config.get('start')} to {config.get('end')} · cutoff {config.get('cutoff')} · {provenance(config.get('mode', 'real'))}")
@@ -118,16 +110,13 @@ def render_summary(certificate: dict, navigate) -> None:
             # Waterfall-style decomposition chart
             fig = go.Figure()
             labels = ["Normalized spread", "Maturity component", "Remaining spread"]
-            colors = ["#C9A864", "#8BB9C6", "#8AAF99"]
+            colors = PALETTE[:3]
             for i, (label, val, color) in enumerate(zip(labels, values, colors)):
                 fig.add_trace(go.Bar(name=label, x=[label], y=[val], marker_color=color,
                     hovertemplate=f"{label}: ₹%{{y:.4f}} per fine gram<extra></extra>"))
-            fig.update_layout(title=f"Spread components on {latest['date']}", yaxis_title="INR per fine gram",
-                              height=340, template="plotly_dark", paper_bgcolor="#11161D", plot_bgcolor="#11161D",
-                              margin=dict(t=55,b=40), showlegend=False, bargap=0.4)
-            fig.update_xaxes(gridcolor="#242B35")
-            fig.update_yaxes(gridcolor="#242B35", zerolinecolor="#C9A86433")
-            st.plotly_chart(fig, use_container_width=True, key="guided_decomposition")
+            style_chart(fig, f"Spread components on {latest['date']}", height=340)
+            fig.update_layout(yaxis_title="INR per fine gram", showlegend=False, bargap=0.4)
+            st.plotly_chart(fig, width="stretch", key="guided_decomposition")
             st.caption(f"Policy {config.get('baseline', 'C')}: A retains maturity basis; B and C subtract a supported curve component. These components do not identify causal profit.")
         else:
             st.info("A supported maturity adjustment is unavailable. The remaining spread retains unresolved expiry basis; no value is invented.")

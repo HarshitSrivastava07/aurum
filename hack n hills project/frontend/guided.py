@@ -34,30 +34,21 @@ def _step(step: int) -> None:
 
 def welcome(summary, config, navigate) -> None:
     st.title("Understand gold futures. Test the evidence.")
-    st.markdown("""<div style="text-align:center; padding:0.5rem 0 0.8rem;">
-        <div style="font-size:2.8rem; font-weight:700; letter-spacing:-0.04rem; color:#E5CD9D;">AURUM X</div>
-        <div style="font-size:1.1rem; color:#A8B2BF; margin-top:0.3rem; letter-spacing:0.08rem;">
-            Investigate Price Differences · Test the Evidence
-        </div>
-    </div>""", unsafe_allow_html=True)
-
-    st.markdown("""<div style="text-align:center; padding:0 2rem 1.5rem; max-width:700px; margin:0 auto;">
-        <p style="color:#CED3DB; font-size:0.95rem; line-height:1.65;">
+    st.markdown("""<div class="welcome-intro">
             Gold futures contracts can trade at different prices because of purity, contract size,
             expiry and market conditions. AURUM X investigates these differences to determine whether
             they are normal, unusual, or potentially meaningful after costs and risks.
-        </p>
     </div>""", unsafe_allow_html=True)
 
     columns = st.columns(3, gap="medium")
     choices = [
-        ("🔍  Start Guided Investigation",
+        ("Start Guided Investigation",
          "Choose a research question and follow the evidence step by step. No manual configuration required.",
          "Guided Investigation", None, "primary"),
-        ("📊  Explore a Demonstration",
+        ("Explore a Demonstration",
          "Learn the complete workflow using reproducible, clearly labeled synthetic prices.",
          "Guided Investigation", "synthetic", "secondary"),
-        ("⚙️  Open Research Workspace",
+        ("Open Research Workspace",
          "Full analytical control with exact contracts, detailed parameters and every research engine.",
          "Command Center", None, "secondary"),
     ]
@@ -73,19 +64,18 @@ def welcome(summary, config, navigate) -> None:
     st.markdown("#### How an investigation works")
     pipeline_cols = st.columns(5, gap="small")
     pipeline_steps = [
-        ("📥", "Market Data", "Load and validate daily contract prices"),
-        ("⚖️", "Normalization", "Adjust for purity, units and contract differences"),
-        ("🔎", "Anomaly Detection", "Find unusual price differences using statistical methods"),
-        ("🛡️", "Risk Testing", "Challenge findings with costs, stress and adversarial checks"),
-        ("📋", "Evidence Verdict", "Preserve the investigation with a clear conclusion"),
+        ("01", "Market data", "Load and validate daily contract prices"),
+        ("02", "Normalization", "Adjust for purity, units and contract differences"),
+        ("03", "Anomaly detection", "Compare price differences with earlier observations"),
+        ("04", "Risk testing", "Challenge findings with costs, stress and adversarial checks"),
+        ("05", "Evidence verdict", "Preserve the investigation with a clear conclusion"),
     ]
     for col, (icon, title, desc) in zip(pipeline_cols, pipeline_steps):
         with col:
-            st.markdown(f"""<div style="text-align:center; padding:0.6rem 0.3rem;
-                border:1px solid #29303A; border-radius:8px; background:#131921; min-height:8rem;">
-                <div style="font-size:1.5rem;">{icon}</div>
-                <div style="font-size:0.82rem; font-weight:600; color:#E5CD9D; margin:0.3rem 0 0.2rem;">{title}</div>
-                <div style="font-size:0.72rem; color:#A8B2BF;">{desc}</div>
+            st.markdown(f"""<div class="pipeline-step">
+                <div class="pipeline-number">{icon}</div>
+                <div class="pipeline-title">{title}</div>
+                <div class="pipeline-description">{desc}</div>
             </div>""", unsafe_allow_html=True)
     st.caption("A completed investigation may reject an idea or find insufficient evidence. Both are useful research outcomes.")
 

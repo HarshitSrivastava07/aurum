@@ -25,6 +25,7 @@ from frontend.workspace import (AUTOMATIC_EXPIRY, apply_pending_preset, clear_re
 from frontend.guided import welcome, wizard, learning
 from frontend.explanations import TERMS, provenance
 from frontend.charts import measure_groups
+from frontend.theme import CSS, PALETTE, HEATMAP, style_chart
 
 
 PAGES = [
@@ -35,8 +36,7 @@ PAGES = [
 ]
 GUIDED_PAGES = ["Welcome", "Guided Investigation", "Learn gold futures", "Evidence Center", "Data Management", "Settings"]
 PRODUCTS = ["GOLDM", "GOLDTEN", "GOLDGUINEA", "GOLDPETAL"]
-GOLD = "#C9A864"
-PALETTE = [GOLD, "#8BB9C6", "#B695C5", "#8AAF99", "#D0807C"]
+GOLD = PALETTE[0]
 SYNTHETIC_LABEL = "SYNTHETIC DEMONSTRATION — NOT ACTUAL MCX PERFORMANCE"
 DESCRIPTIONS = {
     "Guided Investigation": "Choose a question, compare actual observed contracts and follow the evidence step by step.",
@@ -159,17 +159,6 @@ def caption_title(label: str) -> None:
     st.markdown(f'<div class="section-label">{html.escape(label)}</div>', unsafe_allow_html=True)
 
 
-def style_chart(fig: go.Figure, title: str | None = None) -> go.Figure:
-    fig.update_layout(template="plotly_dark", paper_bgcolor="#11161D", plot_bgcolor="#11161D",
-                      colorway=PALETTE, font=dict(family="Arial", color="#CED3DB", size=12),
-                      margin=dict(l=22, r=22, t=48 if title else 24, b=26), height=390,
-                      title=title, legend=dict(orientation="h", y=-0.18),
-                      hovermode="x unified")
-    fig.update_xaxes(gridcolor="#242B35", zerolinecolor="#303844")
-    fig.update_yaxes(gridcolor="#242B35", zerolinecolor="#303844")
-    return fig
-
-
 def show_table(rows: list[dict], *, key: str, download: bool = False) -> None:
     if not rows:
         st.info("No records are available for these filters.")
@@ -234,7 +223,7 @@ def show_result(result: Any, key: str, *, chart_kind: str = "line") -> None:
             if outcome and not frame.duplicated(["cost_bps", sensitivity_axis]).any():
                 pivot = frame.pivot(index=sensitivity_axis, columns="cost_bps", values=outcome)
                 fig = go.Figure(go.Heatmap(x=pivot.columns, y=pivot.index, z=pivot.values,
-                                          colorscale=[[0, "#914C4B"], [0.5, "#252C34"], [1, GOLD]],
+                                          colorscale=HEATMAP, zmid=0,
                                           colorbar=dict(title="Hypothetical ₹")))
                 fig.update_xaxes(title="Assumed transaction cost · bps")
                 fig.update_yaxes(title="Entry delay · sessions" if sensitivity_axis == "execution_delay" else "Assumed slippage · bps")
@@ -637,45 +626,9 @@ def main() -> None:
         for name in ("start", "end", "cutoff"):
             st.session_state.pop(f"{name}_{refresh_mode}", None)
     apply_pending_preset()
-    st.markdown("""<style>
-    .stApp {background: #0D1015;}
-    [data-testid="stSidebar"] {background: #11161D; border-right: 1px solid #29303A;}
-    .block-container {padding-top: 2.4rem; max-width: 1500px; padding-bottom: 3rem;}
-    h1 {font-size: 2.25rem !important; font-weight: 550 !important; letter-spacing: -.055rem;}
-    h2, h3 {font-weight: 500 !important;}
-    .brand {font-size: 1.7rem; letter-spacing: .18rem; color: #E5CD9D; font-weight: 650;}
-    .brand-sub {font-size: .67rem; letter-spacing: .15rem; color: #83909F; margin: .2rem 0 1.2rem;}
-    .section-label {color: #C9A864; text-transform: uppercase; letter-spacing: .13rem; font-size: .69rem; margin: 1.25rem 0 .8rem;}
-    .page-kicker {color: #C9A864; font-size: .72rem; text-transform: uppercase; letter-spacing: .16rem; margin-bottom: .8rem;}
-    [data-testid="stMetric"] {border: 1px solid #2B323D; border-radius: 8px; padding: 1rem; background: #131921;
-        transition: border-color 0.2s ease;}
-    [data-testid="stMetric"]:hover {border-color: #C9A864;}
-    [data-testid="stMetricValue"] {font-size: 1.55rem; color: #E6D4AF;}
-    [data-testid="stMetricLabel"] {color: #91A0B2; font-size: .78rem;}
-    div[data-testid="stAlert"] {border-radius: 7px;}
-    div.stButton > button {border-radius: 6px; box-shadow: none; transition: all 0.15s ease;
-        font-weight: 500; letter-spacing: 0.01rem;}
-    div.stButton > button:hover {transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.3);}
-    div.stButton > button[kind="primary"] {background: linear-gradient(135deg, #C9A864 0%, #B89548 100%);
-        border: none; color: #0D1015; font-weight: 600;}
-    div.stDownloadButton > button {border-radius: 6px; box-shadow: none;}
-    [data-testid="stCaptionContainer"] {color: #A8B2BF;}
-    [data-testid="stExpander"] {border: 1px solid #242B35; border-radius: 8px; background: #111820;}
-    div[data-testid="stVerticalBlock"] > div[data-testid="stContainer"][data-testid-has-border="true"] {
-        border-color: #29303A; border-radius: 10px; background: #111820;
-        transition: border-color 0.2s ease;}
-    div[data-testid="stVerticalBlock"] > div[data-testid="stContainer"][data-testid-has-border="true"]:hover {
-        border-color: #3D4654;}
-    @media (prefers-reduced-motion: reduce) { *, *::before, *::after {animation: none !important; transition: none !important;} }
-    @media (max-width: 768px) {
-        .block-container {padding: 1.5rem 1rem;}
-        h1 {font-size: 1.8rem !important;}
-    }
-    div[data-testid="stDataFrame"] {border: 1px solid #29313D; border-radius: 7px;}
-    footer {visibility: hidden;}
-    </style>""", unsafe_allow_html=True)
+    st.markdown(CSS, unsafe_allow_html=True)
     with st.sidebar:
-        st.markdown('<div class="brand">AURUM <span style="color:#8B96A5">X</span></div><div class="brand-sub">COMMODITY INTELLIGENCE / RESEARCH</div>', unsafe_allow_html=True)
+        st.markdown('<div class="brand">AURUM X</div><div class="brand-sub">Commodity research laboratory</div>', unsafe_allow_html=True)
         experience = st.selectbox("Experience", ["Guided Mode", "Research Mode"], key="experience", on_change=change_experience,
                                   help="Both experiences use the same backend calculations. Research Mode exposes every parameter.")
         mode_label = st.selectbox("Data environment", ["Real MCX history", "Synthetic demonstration"], key="mode_label",
